@@ -669,8 +669,9 @@ Compiles clean (ESP-IDF 5.5.2, ~1.6 MB, no warnings) and **runs on real
 hardware**: the fork has been developed and verified on a Waveshare
 ESP32-S3-Touch-AMOLED-1.75 with a SEN66 (sensor firmware 4.0), updated
 between versions over OTA, with the rollback mechanism exercised for real.
-The upstream project was written without the hardware at hand, which is
-where the two hardware-only bugs above came from.
+Both bugs fixed here are easy to miss on a working device: the touch NACK is
+timing-dependent and only bites on the first boot after an OTA, and an
+ignored fan-cleaning command produces no error at all.
 
 ## Licence
 
