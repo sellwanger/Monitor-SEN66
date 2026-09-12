@@ -1,182 +1,204 @@
 # AirRing — Monitor SEN66
 
-**Carcasa imprimible en MakerWorld: [AirRing](https://makerworld.com/en/models/3199590-airring-air-quality-monitor-mqtt)**
+**Printable enclosure on MakerWorld: [AirRing](https://makerworld.com/en/models/3199590-airring-air-quality-monitor-mqtt)**
 
-Monitor de calidad del aire para la **Waveshare ESP32-S3-Touch-AMOLED-1.75**
-(466×466 redonda) con un **Sensirion SEN66**, pantalla autónoma y
-autodescubrimiento en **Home Assistant** por MQTT.
+Air-quality monitor for the **Waveshare ESP32-S3-Touch-AMOLED-1.75**
+(466×466 round) with a **Sensirion SEN66**, a self-contained display and
+**Home Assistant** auto-discovery over MQTT.
 
-Inspirado en el [PowerDot Air](https://makerworld.com/es/models/3029930-powerdot-air-home-assistant-air-sensor)
-de Scoolt96, que hace lo mismo sobre la Waveshare 1.46" LCD. Su
-[firmware es cerrado](https://github.com/Scoolt96/PowerDot-fw) (el repo solo
-publica los `.bin`), así que esto es una implementación nueva desde cero,
-adaptada a la AMOLED redonda: driver CO5300 por QSPI, táctil CST9217, RTC
-para el histórico y un simulador de escritorio para iterar la pantalla.
+> **This is a fork** of [socquique/Monitor-SEN66](https://github.com/socquique/Monitor-SEN66).
+> It adds security hardening for the web panel, an optional battery-saver
+> mode, a German default UI with English log output, Home Assistant entity
+> names aligned with [Project Aura](https://github.com/21cncstudio/project_aura),
+> and fixes for two bugs that only show up on real hardware (a touch-driver
+> abort during WiFi start-up, and fan cleaning that never actually ran).
+> See [What changed in this fork](#what-changed-in-this-fork) for the full list.
+
+Inspired by Scoolt96's [PowerDot Air](https://makerworld.com/es/models/3029930-powerdot-air-home-assistant-air-sensor),
+which does the same on the Waveshare 1.46" LCD. Its
+[firmware is closed](https://github.com/Scoolt96/PowerDot-fw) (the repo only
+publishes `.bin` files), so this is a new implementation from scratch,
+adapted to the round AMOLED: CO5300 driver over QSPI, CST9217 touch, an RTC
+for the history, and a desktop simulator to iterate on the screen.
 
 <p align="center">
-  <img src="docs/img/pagina_0.png" width="300" alt="Pantalla de resumen">
+  <img src="docs/img/pagina_0.png" width="300" alt="Overview page">
 </p>
 
-## Qué hace
+## What it does
 
-- Mide **nueve magnitudes** con un solo sensor: CO₂, PM1.0 / PM2.5 / PM4.0 /
-  PM10, índice VOC, índice NOx, temperatura y humedad.
-- **Cinco páginas** en una pantalla AMOLED redonda, más una vista de reposo
-  que las muestra todas de un vistazo.
-- **Aparece solo en Home Assistant** por MQTT autodiscovery, y funciona
-  también con **HomeKit** vía Homebridge ([guía](docs/HOMEBRIDGE.md)).
-- **Todo local**: ni nube, ni cuenta, ni telemetría. Sigue funcionando con la
-  red caída — la pantalla es autónoma.
-- **Panel web** para configurarlo y **actualizaciones por WiFi** (OTA).
-- **Aviso sonoro** al pasar el umbral de CO₂, con histéresis.
-- Funciona **con batería**, con un perfil de ahorro que se activa solo al
-  desenchufar (~6 h medidas con una celda de 1000 mAh).
-- La pantalla habla **español, inglés y alemán**.
+- Measures **nine quantities** with a single sensor: CO₂, PM1.0 / PM2.5 /
+  PM4.0 / PM10, VOC index, NOx index, temperature and humidity — plus noise
+  from the board's own microphones.
+- **Six pages** on a round AMOLED screen, plus an idle view that shows
+  everything at a glance.
+- **Shows up in Home Assistant by itself** via MQTT auto-discovery, and also
+  works with **HomeKit** through Homebridge ([guide](docs/HOMEBRIDGE.md)).
+- **Everything local**: no cloud, no account, no telemetry. Keeps working with
+  the network down — the display is autonomous.
+- **Web panel** for configuration and **over-the-air updates** (OTA), with
+  automatic rollback if a new image fails to boot.
+- **Audible alert** when CO₂ crosses a threshold, with hysteresis.
+- Runs **on battery**, with a power-saving profile that kicks in when you
+  unplug (~6 h measured with a 1000 mAh cell), and an optional battery-saver
+  mode that cycles the sensor to roughly double that.
+- The display speaks **German, English and Spanish**.
 
-| Resumen | CO₂ | Partículas |
+| Overview | CO₂ | Particulates |
 |---|---|---|
 | ![](docs/img/pagina_0.png) | ![](docs/img/pagina_1.png) | ![](docs/img/pagina_2.png) |
-| **Gases** | **Clima** | **Reposo** |
+| **Gases** | **Climate** | **Idle** |
 | ![](docs/img/pagina_3.png) | ![](docs/img/pagina_4.png) | ![](docs/img/reposo.png) |
 
-*(capturas del simulador incluido, que ejecuta la misma UI que el firmware)*
+*(screenshots from the included simulator, which runs the same UI as the firmware)*
 
-## Piezas
+## Parts
 
-| Pieza | Notas |
+| Part | Notes |
 |---|---|
-| Waveshare ESP32-S3-Touch-AMOLED-1.75 | SKU 31261 (las variantes -B y -G también sirven) |
-| Sensirion SEN66 | 3,3 V ±5 %, I2C, viene con cable JST GH de 6 hilos |
-| 4 cables al header de 8 pines | 3V3, GND, SDA, SCL |
-| 3 tornillos M2×6 | Sujetan la placa al aro del bisel |
-| [Carcasa AirRing](https://makerworld.com/en/models/3199590-airring-air-quality-monitor-mqtt) | Imprimible, 0,24 mm de capa, 2 paredes, 15% de relleno |
-| Cable USB-C | alimentación y flasheo |
+| Waveshare ESP32-S3-Touch-AMOLED-1.75 | SKU 31261 (the -B and -G variants work too) |
+| Sensirion SEN66 | 3.3 V ±5 %, I2C, ships with a 6-wire JST GH cable |
+| 4 wires to the 8-pin header | 3V3, GND, SDA, SCL |
+| 3 × M2×6 screws | Hold the board to the bezel ring |
+| [AirRing enclosure](https://makerworld.com/en/models/3199590-airring-air-quality-monitor-mqtt) | Printable, 0.24 mm layers, 2 walls, 15 % infill |
+| USB-C cable | power and flashing |
 
-## Cableado — leer antes de conectar
+## Wiring — read before connecting
 
-**El SEN66 responde en la dirección I2C `0x6B`, que es exactamente la misma
-que el IMU QMI8658 que la placa lleva soldado.** No pueden compartir bus. Por
-eso el sensor va en un **segundo bus I2C** (puerto 1) sobre GPIOs del header
-de expansión, a 100 kHz (el máximo que admite el SEN66), mientras el bus de a
-bordo (táctil, PMU, RTC, IMU, audio) sigue a 400 kHz. Ventaja de propina: el
-sensor no compite con el táctil.
+**The SEN66 answers at I2C address `0x6B`, which is exactly the same address
+as the QMI8658 IMU soldered onto the board.** They cannot share a bus. That is
+why the sensor goes on a **second I2C bus** (port 1) on expansion-header GPIOs
+at 100 kHz (the maximum the SEN66 supports), while the on-board bus (touch,
+PMU, RTC, IMU, audio) stays at 400 kHz. Bonus: the sensor never competes with
+the touch controller.
 
-**El esquema completo está en [docs/CABLEADO.md](docs/CABLEADO.md).** Resumen:
+**The full diagram is in [docs/CABLEADO.md](docs/CABLEADO.md).** Summary:
 
-Se cablea por la **etiqueta serigrafiada** del header, no por número de pin:
+Wire by the **silk-screen label** on the header, not by pin number:
 
-| SEN66 | Cable | → | Etiqueta en la placa |
+| SEN66 | Wire | → | Label on the board |
 |---|---|---|---|
-| 1 VDD | rojo | → | **3V3** (¡no VBUS, que son 5 V!) |
-| 2 GND | negro | → | **GND** |
-| 3 SDA | verde | → | **IO17** |
-| 4 SCL | amarillo | → | **IO18** |
+| 1 VDD | red | → | **3V3** (not VBUS, that's 5 V!) |
+| 2 GND | black | → | **GND** |
+| 3 SDA | green | → | **IO17** |
+| 4 SCL | yellow | → | **IO18** |
 
-Los cables azul y violeta (pines 5 y 6 del sensor) no se conectan. Ojo: el
-orden real del header es `IO18 IO17 IO16 RXD TXD 3V3 GND VBUS` y **no** coincide
-con la numeración 1..8 de la [referencia de hardware oficial](https://github.com/waveshareteam/ESP32-S3-Touch-AMOLED-1.75/blob/main/HARDWARE_REFERENCE.md).
+The blue and purple wires (sensor pins 5 and 6) are left unconnected. Careful:
+the actual header order is `IO18 IO17 IO16 RXD TXD 3V3 GND VBUS` and does
+**not** match the 1..8 numbering in the
+[official hardware reference](https://github.com/waveshareteam/ESP32-S3-Touch-AMOLED-1.75/blob/main/HARDWARE_REFERENCE.md).
 
-Si se cablea de otra forma, no hace falta tocar nada a ciegas: al arrancar,
-si el sensor no contesta en esos pines, el firmware **barre los pares
-candidatos** del header y avisa por consola de cuál funciona:
+If you wire it differently there is no need to guess: at boot, if the sensor
+does not answer on those pins, the firmware **scans the candidate pairs** on
+the header and tells you on the console which one works:
 
 ```
-W (1234) sen66: no responde en SDA=17 SCL=18, barriendo header
-I (1500) sen66: producto: 'SEN66'
-W (1500) sen66: encontrado en SDA=16 SCL=17 (no en los de board.h); fija esos valores en BOARD_SEN66_PIN_*
+W (1234) sen66: not responding at SDA=17 SCL=18, scanning header
+I (1500) sen66: product: 'SEN66'
+W (1500) sen66: found at SDA=16 SCL=17 (not the board.h pins); set BOARD_SEN66_PIN_* to these values
 ```
 
-Se anota el par bueno en `board.h`, se recompila y listo. La comprobación no
-se queda en el ACK de la dirección: lee el nombre de producto y exige que
-empiece por `SEN6`, para no confundirse con otro chip.
+Put the working pair into `board.h`, rebuild, done. The check does not stop at
+the address ACK: it reads the product name and requires it to start with
+`SEN6`, so it cannot be fooled by some other chip.
 
-El SEN66 tiene ventilador y **Sensirion avisa de picos de hasta 350 mA**.
-Waveshare no especifica cuánta corriente da el 3V3 del header; en la práctica
-el buck del AXP2101 va sobrado, pero conviene alimentar la placa con un
-cargador USB-C de 1 A o más y no desde un puerto de hub. Si aparecen
-reinicios por brownout, errores de CRC o `fan_error`, la causa es ésa y la
-solución es una fuente de 3,3 V aparte para el sensor con GND común. Con
-batería la autonomía será de horas, no de días.
+The SEN66 has a fan and **Sensirion warns of peaks up to 350 mA**. Waveshare
+does not specify how much current the header's 3V3 can supply; in practice
+the AXP2101's buck has plenty of headroom, but power the board from a USB-C
+charger rated 1 A or more, not from a hub port. If you see brownout resets,
+CRC errors or `fan_error`, that is the cause, and the fix is a separate 3.3 V
+supply for the sensor with a common GND. On battery, expect hours, not days.
 
-## Compilar y flashear
+## Build and flash
 
-Necesita **ESP-IDF 5.3 o superior** (probado con 5.5.2).
+Requires **ESP-IDF 5.3 or newer** (tested with 5.5.2).
 
 ```bash
-source ~/esp/esp-idf/export.sh
+. ~/esp/esp-idf/export.sh
 idf.py set-target esp32s3
 idf.py build
-idf.py -p /dev/cu.usbmodem1101 flash monitor
+idf.py -p /dev/ttyACM0 flash monitor      # Linux; on macOS the port is /dev/cu.usbmodemXXXX
 ```
 
-El gestor de componentes descarga solo LVGL 9, `esp_lvgl_port`,
-`esp_lcd_co5300` y `esp_lcd_touch_cst9217`.
+The component manager fetches LVGL 9, `esp_lvgl_port`, `esp_lcd_co5300` and
+`esp_lcd_touch_cst9217` by itself.
 
-La tabla de particiones tiene **dos slots de app de 4 MB**, así que las
-actualizaciones OTA desde el navegador funcionan desde el primer flasheo.
+The partition table has **two 4 MB app slots**, so OTA updates from the
+browser work from the very first flash. With `CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE`
+set (it is, in `sdkconfig.defaults`), a new image boots on probation: if it
+does not reach the end of `app_main` and confirm itself, the bootloader falls
+back to the previous image on the next reset. That saved this fork once
+already during development.
 
-## Primer arranque
+## First boot
 
-1. Sin red configurada, el aparato abre un punto de acceso abierto llamado
-   **`SEN66-XXXXXX`** (la pantalla lo indica).
-2. Conectarse y abrir **http://192.168.4.1**.
-3. Rellenar WiFi y broker MQTT (`mqtt://192.168.1.10:1883`), guardar. El
-   aparato se reinicia y se conecta.
-4. A partir de ahí el panel web está en la IP que muestre la pantalla.
+1. With no network configured, the device opens a **WPA2** access point called
+   **`SEN66-XXXXXX`**. The screen shows the network name **and an 8-digit
+   password**, which is generated fresh on every boot.
+2. Connect to it and open **http://192.168.4.1**.
+3. Fill in WiFi and, optionally, the MQTT broker (`mqtt://192.168.1.10:1883`),
+   then save. The device reboots and connects.
+4. From then on the web panel is at the IP shown on the screen.
 
-Si la contraseña del WiFi cambia y falla 8 veces seguidas, el portal se
-vuelve a abrir solo sin perder la configuración: no hay que reflashear.
+If the WiFi password changes and the connection fails 8 times in a row, the
+setup portal opens again by itself without losing the configuration — no
+reflashing needed. It closes automatically as soon as the network is back.
 
 ## Home Assistant
 
-Hace falta un broker MQTT: cómo montarlo y cómo comprobar que el aparato
-publica está en **[docs/MQTT.md](docs/MQTT.md)**. Con eso hecho:
+You need an MQTT broker: how to set one up and how to verify that the device
+is publishing is in **[docs/MQTT.md](docs/MQTT.md)**. With that in place:
 
-1. En HA, Ajustes > Dispositivos y servicios > **Añadir integración > MQTT**,
-   apuntando al broker con su usuario y contraseña.
-2. Nada más. **No hay que tocar YAML.**
+1. In HA, Settings > Devices & services > **Add integration > MQTT**, pointing
+   at the broker with its username and password.
+2. That's it. **No YAML to touch.**
 
-Al conectar, el firmware publica mensajes de descubrimiento retenidos en
-`homeassistant/sensor/sen66-xxxxxx/<clave>/config` y HA crea **un dispositivo
-con 11 entidades**: las nueve del sensor, el nivel global de calidad del aire
-y la cobertura WiFi como diagnóstico.
+On connect, the firmware publishes retained discovery messages to
+`homeassistant/sensor/sen66-xxxxxx/<key>/config` and HA creates **one device
+with 11 entities**: the nine from the sensor, the overall air-quality level
+and the WiFi signal as a diagnostic.
 
-El **ruido** aparece como una entidad más, con clase `sound_pressure` y en dB.
-En HomeKit no: allí no existe el concepto de nivel sonoro, así que va como un
-binario de umbral (ver [docs/HOMEBRIDGE.md](docs/HOMEBRIDGE.md)).
+Entity names follow the same scheme as Project Aura, so dashboards written
+for one work with the other: `Temperature`, `Humidity`, `CO2`, `VOC Index`,
+`NOx Index`, `PM1.0`, `PM2.5`, `PM4.0`, `PM10`, `Noise`, and `Air Status` for
+the overall level.
 
-**Con batería conectada aparecen 4 más**, también como diagnóstico: carga en
-%, tensión de la celda en mV, y dos binarios para *cargando* y *alimentación
-USB*. Si no hay celda **no se publican**, para no dejar en Home Assistant
-cuatro entidades que no van a decir nada nunca. Se detecta al conectar con el
-broker, así que si añades la batería después hay que reiniciar el aparato.
+**Noise** appears as one more entity, with device class `sound_pressure` in
+dB. Not in HomeKit: there is no such thing as a noise level there, so it goes
+as a threshold binary instead (see [docs/HOMEBRIDGE.md](docs/HOMEBRIDGE.md)).
 
-- Estado: `sen66-xxxxxx/state`, un JSON cada 10 s.
-- Disponibilidad: `sen66-xxxxxx/status` con *last will*, así que si el
-  aparato se cae HA lo marca como no disponible en vez de dejar valores
-  congelados.
+**With a battery connected, 4 more entities appear**, also as diagnostics:
+charge in %, cell voltage in mV, and two binaries for *charging* and *USB
+power*. If there is no cell they are **not published**, so Home Assistant is
+not left with four entities that will never say anything. This is detected
+when connecting to the broker, so if you add the battery later, reboot the
+device.
 
-Las clases de dispositivo van puestas (`carbon_dioxide`, `pm25`, `pm10`,
-`temperature`, `humidity`…) para que las gráficas y las unidades salgan bien.
-Los índices VOC/NOx no tienen clase porque en HA no existe: van con icono.
+- State: `sen66-xxxxxx/state`, one JSON every 10 s.
+- Availability: `sen66-xxxxxx/status` with a *last will*, so if the device
+  goes down HA marks it unavailable instead of leaving frozen values.
 
-La entidad del nivel muestra el identificador tal cual —`good`, `fair`,
-`moderate`, `poor`, `bad`— porque es lo que viaja por MQTT, sin traducir, para
-que las automatizaciones no se rompan al cambiar el idioma de la pantalla. Si
-lo quieres en castellano **en el panel, sin perder eso**, con una plantilla en
-`configuration.yaml`:
+Device classes are set (`carbon_dioxide`, `pm25`, `pm10`, `temperature`,
+`humidity`…) so graphs and units come out right. The VOC/NOx indices have no
+class because HA has none for them; they get an icon instead.
+
+The level entity shows the raw identifier — `good`, `fair`, `moderate`,
+`poor`, `bad` — because that is what travels over MQTT, untranslated, so that
+automations do not break when you change the display language. If you want
+it in plain language **on the dashboard, without losing that**, use a
+template in `configuration.yaml`:
 
 ```yaml
 template:
   - sensor:
-      - name: "Calidad del aire (texto)"
+      - name: "Air quality (text)"
         state: >
-          {{ {'good':'Bueno','fair':'Aceptable','moderate':'Regular',
-              'poor':'Malo','bad':'Muy malo'}.get(
-              states('sensor.monitor_sen66_calidad_del_aire'), 'Desconocido') }}
+          {{ {'good':'Good','fair':'Fair','moderate':'Moderate',
+              'poor':'Poor','bad':'Very poor'}.get(
+              states('sensor.monitor_sen66_air_status'), 'Unknown') }}
 ```
 
-Para automatizar, usa el identificador y no el texto:
+For automations, use the identifier, not the text:
 
 ```yaml
 trigger:
@@ -185,21 +207,25 @@ trigger:
     above: 1200
 ```
 
-### Histórico
+> If you are upgrading an existing installation from the upstream firmware:
+> the `unique_id`s are unchanged, so HA keeps history and automations. Only
+> the friendly names update. Entities you had renamed by hand keep your name.
 
-Aquí hay un malentendido fácil. HA guarda **dos cosas distintas**:
+### History
 
-- Las **estadísticas de larga duración**: una fila por hora con mínimo, máximo
-  y media. **No se purgan nunca.** Salen solas en todas las métricas porque el
-  firmware publica `state_class: measurement`. Las tendencias de meses ya las
-  tienes sin tocar nada.
-- El **detalle**, cada muestra tal cual llegó. Eso sí caduca, a los **10 días**
-  por defecto.
+There is an easy misunderstanding here. HA stores **two different things**:
 
-O sea que subir la retención solo sirve para poder hacer zoom en un día
-concreto de hace tiempo, no para ver la tendencia larga.
+- **Long-term statistics**: one row per hour with min, max and mean. **Never
+  purged.** They appear automatically for every metric because the firmware
+  publishes `state_class: measurement`. You already have months of trends
+  without touching anything.
+- The **detail**, every sample as it arrived. That does expire, after
+  **10 days** by default.
 
-Si aun así lo quieres más largo, en `configuration.yaml`:
+So raising the retention only lets you zoom into a specific day from a while
+ago; it does nothing for the long trend.
+
+If you still want it longer, in `configuration.yaml`:
 
 ```yaml
 recorder:
@@ -210,311 +236,364 @@ recorder:
       - sensor.monitor_sen66_wifi
 ```
 
-El aparato publica cada 10 s y sus métricas cambian casi siempre, así que él
-solo son unas **15.000 filas al día** (medido). Con 30 días la base de datos
-se queda en torno a 80 MB. La cobertura WiFi va excluida porque son ~1.700
-filas diarias de un diagnóstico que nadie mira en histórico; se sigue viendo
-en vivo, simplemente no se guarda.
+The device publishes every 10 s and its metrics almost always change, so on
+its own it produces about **15,000 rows a day** (measured). With 30 days the
+database ends up around 80 MB. The WiFi signal is excluded because it is
+~1,700 daily rows of a diagnostic nobody looks at historically; it is still
+visible live, just not stored.
 
-## HomeKit (sin Home Assistant)
+## HomeKit (without Home Assistant)
 
-Si en vez de HA quieres la app **Casa** de Apple y Siri, se hace con
-Homebridge y `homebridge-mqttthing`: mismo broker
-([docs/MQTT.md](docs/MQTT.md)), distinto oyente. Los accesorios listos para
-pegar y las trampas del montaje están en
-**[docs/HOMEBRIDGE.md](docs/HOMEBRIDGE.md)**.
+If instead of HA you want Apple's **Home** app and Siri, it works through
+Homebridge and `homebridge-mqttthing`: same broker
+([docs/MQTT.md](docs/MQTT.md)), different listener. Ready-to-paste accessories
+and the pitfalls are in **[docs/HOMEBRIDGE.md](docs/HOMEBRIDGE.md)**.
 
-En ese caso deja el **prefijo de descubrimiento vacío** en el panel del
-aparato: el autodescubrimiento solo lo entiende HA.
+In that case leave the **discovery prefix empty** in the device's panel:
+auto-discovery is only understood by HA.
 
-## Idiomas
+## Languages
 
-La pantalla habla **español, inglés y alemán**, y se elige en el panel web.
+The display speaks **German, English and Spanish**, selectable in the web
+panel. **German is the factory default** in this fork; devices with a saved
+configuration keep whatever language they had.
 
-Las fuentes Montserrat de LVGL solo traen ASCII, así que el alemán necesita
-`ÄÖÜäöüß`. En vez de regenerar las cinco fuentes enteras, hay una **fuente de
-reserva** con solo esos siete glifos (`main/fonts/`, ~37 KB en total) que se
-encadena con `lv_font_t.fallback`. Las Montserrat de LVGL son `const` y viven
-en flash, así que la UI usa **copias en RAM** de ~30 bytes con el campo
-`fallback` relleno (`main/fonts/fonts.c`).
+The web panel itself is in German. Serial log output is in English. Source
+comments are in Spanish, as in the upstream project, so that a pull request
+back to the original author stays readable to him.
 
-El español se escribe **sin acentos** a propósito: "Particulas", "ug/m3".
+LVGL's Montserrat fonts only ship ASCII, so German needs `ÄÖÜäöüß`. Rather
+than regenerating all five fonts, there is a **fallback font** with just
+those seven glyphs (`main/fonts/`, ~37 KB total) chained through
+`lv_font_t.fallback`. LVGL's Montserrat fonts are `const` and live in flash,
+so the UI uses **RAM copies** of ~30 bytes with the `fallback` field filled in
+(`main/fonts/fonts.c`).
 
-El valor que va por MQTT **no se traduce**: es un identificador estable en
-inglés (`good`, `fair`, `moderate`, `poor`, `bad`). Si cambiara con el idioma
-de la pantalla, rompería las automatizaciones de Home Assistant.
+Spanish is written **without accents** on purpose: "Particulas", "ug/m3".
 
-## La pantalla
+The value that goes over MQTT is **not translated**: it is a stable English
+identifier (`good`, `fair`, `moderate`, `poor`, `bad`). If it changed with the
+display language it would break Home Assistant automations.
 
-Seis páginas, **se pasan arrastrando el dedo y no rotan solas**. Al no tocar
-nada durante `screen_timeout_s` la pantalla se atenúa y muestra una **vista de
-reposo con las nueve magnitudes** a la vez; al tocar vuelve exactamente a la
-página donde estabas.
+## The display
 
-| Página | Contenido |
+Six pages, **swiped by finger, no auto-rotation**. After `screen_timeout_s`
+without touching anything the screen dims and shows an **idle view with all
+nine quantities** at once; touching it brings you back to exactly the page
+you were on.
+
+| Page | Contents |
 |---|---|
-| Resumen | Anillo semáforo con el peor de los contaminantes y qué métrica manda |
-| CO₂ | Valor grande, anillo 400–2400 ppm y gráfica de la última hora |
-| Partículas | PM2.5 en grande con anillo y su curva al fondo; PM1.0 / PM4.0 / PM10 debajo |
-| Gases | Índices VOC y NOx en dos anillos |
-| Clima | Temperatura y humedad, y ambas curvas superpuestas con escala propia |
-| Ruido | Nivel en dB con anillo 30–90 y gráfica; ver la nota de calibración |
+| Overview | Traffic-light ring with the worst pollutant and which metric is driving it |
+| CO₂ | Big value, 400–2400 ppm ring and last-hour graph |
+| Particulates | PM2.5 large with ring and its curve behind; PM1.0 / PM4.0 / PM10 below |
+| Gases | VOC and NOx indices in two rings |
+| Climate | Temperature and humidity, both curves overlaid with their own scales |
+| Noise | Level in dB with a 30–90 ring and graph; see the calibration note |
 
-En AMOLED el negro es píxel apagado, así que el fondo negro no consume y el
-atenuado por inactividad ahorra de verdad.
+On AMOLED, black is a switched-off pixel, so the black background costs
+nothing and the idle dimming really saves power.
 
-### Umbrales
+### Thresholds
 
-Cinco niveles: **BUENO / ACEPTABLE / REGULAR / MALO / MUY MALO**.
+Five levels: **GOOD / FAIR / MODERATE / POOR / VERY POOR**.
 
-| Métrica | Fronteras |
+| Metric | Boundaries |
 |---|---|
 | CO₂ (ppm) | 800 · 1000 · 1400 · 2000 |
-| PM1.0 y PM2.5 (µg/m³) | 10 · 20 · 25 · 50 |
-| PM4.0 y PM10 (µg/m³) | 20 · 40 · 50 · 100 |
-| Índice VOC | 150 · 250 · 400 · 450 |
-| Índice NOx | 20 · 150 · 300 · 400 |
+| PM1.0 and PM2.5 (µg/m³) | 10 · 20 · 25 · 50 |
+| PM4.0 and PM10 (µg/m³) | 20 · 40 · 50 · 100 |
+| VOC index | 150 · 250 · 400 · 450 |
+| NOx index | 20 · 150 · 300 · 400 |
 
-Temperatura y humedad no son contaminación: se clasifican por distancia al
-rango de confort (19–25 °C, 40–60 %RH) y **no entran en el semáforo global**.
+Temperature and humidity are not pollution: they are rated by distance from
+the comfort range (19–25 °C, 40–60 %RH) and **do not enter the overall
+traffic light**.
 
-Los umbrales están en un único sitio, la tabla `k_bands` de
+The thresholds live in one place, the `k_bands` table in
 [`main/air.c`](main/air.c).
 
-## Simulador de escritorio
+## Desktop simulator
 
-Compila **la misma UI y la misma lógica** que el firmware contra SDL2, con
-datos sintéticos (el CO₂ sube, alguien ventila cada 15 min, de vez en cuando
-se cocina). Iterar la pantalla aquí es mucho más rápido que flashear.
+Builds **the same UI and the same logic** as the firmware against SDL2, with
+synthetic data (CO₂ rises, someone airs the room every 15 min, occasionally
+there is cooking). Iterating on the screen here is much faster than flashing.
 
 ```bash
-brew install sdl2                      # una vez
-idf.py build                           # una vez, para que baje LVGL
+brew install sdl2                      # once (Linux: apt install libsdl2-dev)
+idf.py build                           # once, so that LVGL gets downloaded
 cd sim && cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j
 ./build/sen66_sim
 ```
 
-Opciones útiles:
+Useful options:
 
 ```bash
-./build/sen66_sim --lang de            # en aleman
-./build/sen66_sim --page 2             # abre en una pagina concreta
-./build/sen66_sim --scenario bad       # aire malo
-./build/sen66_sim --warp 60             # el tiempo corre 60x
-./build/sen66_sim --offset 2400         # adelanta la fase del ciclo
-./build/sen66_sim --shots /tmp/caps 5   # 5 capturas BMP y sale
+./build/sen66_sim --lang de            # in German
+./build/sen66_sim --page 2             # open on a specific page
+./build/sen66_sim --scenario bad       # bad air
+./build/sen66_sim --warp 60            # time runs 60x
+./build/sen66_sim --offset 2400        # advance the cycle phase
+./build/sen66_sim --shots /tmp/caps 5  # 5 BMP captures and exit
 ```
 
-## Ajustes (panel web)
+## Settings (web panel)
 
-Red y MQTT, nombre en HA, idioma, zona horaria y NTP, brillo normal y
-atenuado, tiempo hasta atenuar, segundos por página, páginas visibles
-(máscara de bits), ventana de las gráficas, corrección de temperatura,
-altitud, autocalibración del CO₂ y el **aviso sonoro**: activarlo, el umbral
-al que salta, el umbral al que se calla y el volumen.
+Network and MQTT, name in HA, language, time zone and NTP, normal and dimmed
+brightness, time until dimming, seconds per page, visible pages (bit mask),
+graph window, temperature offset, altitude, CO₂ auto-calibration, the
+**audible alert** (enable, trigger threshold, clear threshold, volume), an
+optional **panel password**, and the **battery-saver** cycle.
 
-Los dos umbrales del aviso no son el mismo número a propósito. Salta al
-subir de `alarm_co2_ppm` y no se calla hasta bajar de `alarm_clear_ppm`, y
-esa diferencia es lo que evita que pite sin parar cuando el CO₂ se queda
-rondando el límite. Si guardas el de callar por encima del de avisar, el
-panel lo baja solo y lo dice en el log.
+The two alert thresholds are deliberately not the same number. It triggers
+on rising above `alarm_co2_ppm` and does not go quiet until falling below
+`alarm_clear_ppm`; that gap is what stops it beeping endlessly while CO₂
+hovers around the limit. If you save the clear threshold above the trigger
+threshold, the panel lowers it by itself and says so in the log.
 
-Al guardar, **el aparato se reinicia**: es la forma limpia de aplicar de una
-vez la red, el MQTT, las páginas y los ajustes del propio sensor, sin quedarse
-a medias. El brillo sí se aplica al instante.
+On save, **the device reboots**: it is the clean way to apply the network,
+MQTT, pages and the sensor's own settings in one go, with nothing left
+half-applied. Brightness does apply immediately.
 
-También hay botones para **limpiar el ventilador** del sensor, para **probar
-el altavoz** y para **subir un `.bin`** y actualizar por OTA. La limpieza
-además se lanza **sola una vez por semana**, que es lo que recomienda
-Sensirion; la fecha de la última se guarda en NVS para que reiniciar no
-reinicie la cuenta.
+There are also buttons to **clean the sensor's fan**, **test the speaker**
+and **upload a `.bin`** for an OTA update. The cleaning also runs **by itself
+once a week**, as Sensirion recommends; the date of the last one is kept in
+NVS so a reboot does not restart the count.
 
-### Recalibrar el CO₂
+Fan cleaning stops the measurement first (the SEN66 only accepts the command
+in idle mode), runs the fan at full speed for 10 seconds, and restarts —
+about 12 seconds without readings, and you can hear it. In the upstream
+firmware the command was sent while measuring, where the sensor silently
+ignores it, so neither the button nor the weekly cleaning ever did anything.
 
-En Mantenimiento hay un botón para forzar la calibración del CO₂ contra una
-referencia conocida. **Solo tiene sentido con una referencia de verdad**: el
-aire libre son unos 420 ppm, así que se saca el aparato fuera, lejos de
-personas, se deja medir cinco minutos y se recalibra a 420. Con un número
-inventado se estropea la medida en vez de arreglarla, **y queda guardado en
-la EEPROM del sensor**.
+### Battery saver
 
-No suele hacer falta: la autocalibración automática está activada y se ajusta
-sola si el aparato ve aire fresco de vez en cuando.
+Optional and off by default. When enabled, it only acts **without USB**: the
+sensor measures for a window (default 180 s) and then sits idle for the rest
+of a cycle (default 600 s). In measurement mode the SEN66 draws ~90 mA (fan,
+laser, CO₂ cell); idle it draws ~3 mA, so 3 min in 10 brings the sensor's
+average down to ~29 mA and roughly doubles battery life. The moment USB is
+back, continuous measurement resumes.
 
-Por dentro, el panel solo *pide* la recalibración; quien la ejecuta es la
-tarea del sensor, porque el comando exige la medición parada y hacer el
-stop/start desde el hilo del servidor chocaría con la lectura de cada
-segundo. El aprendizaje del VOC se guarda antes de parar y se devuelve
-después, para no tirar días de aprendizaje por una recalibración. El
-resultado (la corrección aplicada, en ppm) aparece en el propio panel.
+The price, per the datasheet: NOx needs ~5 minutes of continuous operation
+to react, so it is effectively blind in short windows; the CO₂ accuracy
+guarantee with auto-calibration assumes continuous operation; and the first
+~30 s of each window the PM readings are still settling. PM, temperature,
+humidity and VOC (whose algorithm state survives stop/start) stay usable.
+During the pause, Home Assistant keeps the last retained values and the
+display shows "power saving: sensor paused".
 
-### Sobre la seguridad del panel
+### Recalibrating CO₂
 
-**El panel web no tiene contraseña, y es a propósito.** Cualquiera en tu red
-local puede cambiar los ajustes, reiniciarlo y **subirle firmware por
-`/api/ota`**. Para un aparato doméstico en una red de confianza es un
-compromiso razonable —y hace que actualizarlo sea trivial—, pero conviene
-saberlo: si tu WiFi tiene invitados o cacharros poco fiables, esto es una
-puerta abierta.
+Under Maintenance there is a button to force a CO₂ calibration against a
+known reference. **It only makes sense with a real reference**: outdoor air
+is about 420 ppm, so take the device outside, away from people, let it
+measure for five minutes and recalibrate to 420. With a made-up number you
+break the measurement instead of fixing it, **and it is stored in the
+sensor's EEPROM**.
 
-## Puesta a punto del sensor
+It is rarely needed: automatic self-calibration is on and adjusts itself as
+long as the device sees fresh air now and then.
 
-- **Los índices VOC y NOx necesitan tiempo.** Son índices adaptativos: el
-  sensor aprende el ambiente habitual y lo sitúa en 100 (VOC) y 1 (NOx). Las
-  primeras horas los valores no significan gran cosa.
-- **La temperatura leerá alto**, porque el sensor está dentro de una carcasa
-  junto a electrónica que calienta. Se compara con un termómetro de referencia
-  y se mete la diferencia en "Corrección de temperatura": el offset se programa
-  **dentro del SEN66**, así que corrige también la humedad relativa.
+Internally, the panel only *requests* the recalibration; the sensor task
+executes it, because the command requires the measurement to be stopped and
+doing the stop/start from the server thread would collide with the
+once-a-second read. The VOC learning state is saved before stopping and
+restored afterwards, so a recalibration does not throw away days of
+learning. The result (the correction applied, in ppm) shows up in the panel.
 
-  Pero antes de aplicar nada, léete [Sobre medir el
-  desvío](#sobre-medir-el-desvío): es fácil corregir de más.
-- **Altitud**: afecta a la medida de CO₂. Poner los metros del sitio.
-- **Autocalibración del CO₂ (ASC)**: activada por defecto. Asume que el
-  aparato ve aire fresco (~400 ppm) de forma regular. En una habitación que
-  nunca se ventila conviene desactivarla y hacer una recalibración forzada al
-  aire libre.
+### Panel security
 
-### El sonometro
+The upstream firmware has no password on purpose and says so; this fork
+tightens that without changing the default experience:
 
-La placa lleva **dos microfonos**, que no cuelgan del ES8311 (ese es solo
-salida) sino de un **ES7210** aparte, en `0x40`. El ruido entra como una
-metrica mas, asi que hereda historial, graficas, panel web y descubrimiento
-de Home Assistant sin nada especifico; lo unico propio es el driver y el paso
-a decibelios. **No cuenta para el semaforo global**: no es calidad del aire.
+- **Optional Basic Auth.** Set a user and password under "Panel access". With
+  a password set, every route requires it — except during the setup portal,
+  where physical presence is assumed. With no password, the panel stays open
+  on the local network as before.
+- **Cross-site protection.** Every API call from the panel carries a custom
+  `X-CSRF` header, which a page on another site cannot add without a CORS
+  preflight the device does not answer. The `Host` header must be the
+  device's own IP (or `192.168.4.1`), which blocks DNS-rebinding attacks.
+- **The backup with passwords is refused unless a panel password is set**,
+  so your WiFi key cannot be downloaded in clear text from an unprotected
+  panel.
+- **The rescue portal is WPA2**, not open, so a neighbour in range cannot
+  reconfigure the device while it is trying to reconnect. It closes itself
+  once the network is back.
+- **OTA rollback** is enabled: an image that boots but fails before
+  confirming itself is reverted automatically.
+- **Signed OTA** is prepared but commented out in `sdkconfig.defaults`,
+  because it needs a signing key you generate yourself
+  (`espsecure.py generate_signing_key`). Until you enable it, `/api/ota` is
+  protected by the checks above but not cryptographically.
 
-**El nivel esta calibrado** (09-09-2026). Del microfono sale un nivel a fondo
-de escala (dBFS, siempre negativo); pasarlo a dB SPL exige la sensibilidad del
-micro y la ganancia del codec, y eso se mide, no se deduce. El desfase por
-defecto es **112 dB**, y sale de dos anclajes con una app de sonometro del
-movil pegada al aparato, promediando en energia una ventana de cada uno:
+Free-text fields (device name, SSID, time zone…) are JSON-escaped in the
+panel and in the HA discovery payload, and the response builders cannot
+overrun their buffers.
 
-| | referencia | monitor | desfase |
+## Sensor set-up
+
+- **The VOC and NOx indices need time.** They are adaptive indices: the
+  sensor learns the usual environment and places it at 100 (VOC) and 1
+  (NOx). For the first few hours the values do not mean much.
+- **Temperature will read high**, because the sensor sits inside an
+  enclosure next to electronics that give off heat. Compare with a reference
+  thermometer and put the difference into "Temperature offset": the offset
+  is programmed **inside the SEN66**, so it corrects relative humidity too.
+
+  But before applying anything, read [On measuring the
+  deviation](#on-measuring-the-deviation): it is easy to over-correct.
+- **Altitude**: affects the CO₂ measurement. Enter the site's metres.
+- **CO₂ auto-calibration (ASC)**: on by default. It assumes the device sees
+  fresh air (~400 ppm) regularly. In a room that is never aired, turn it off
+  and do a forced recalibration outdoors.
+
+### The sound-level meter
+
+The board carries **two microphones**, which do not hang off the ES8311 (that
+is output only) but off a separate **ES7210** at `0x40`. Noise comes in as
+one more metric, so it inherits history, graphs, web panel and Home Assistant
+discovery with nothing special; the only bespoke parts are the driver and the
+conversion to decibels. **It does not count toward the overall traffic
+light**: it is not air quality.
+
+**The level is calibrated** (2026-09-09). The microphone yields a
+full-scale level (dBFS, always negative); converting that to dB SPL requires
+the microphone's sensitivity and the codec's gain, and that is measured, not
+derived. The default offset is **112 dB**, from two anchors using a phone
+sound-meter app held against the device, energy-averaging a window of each:
+
+| | reference | monitor | offset |
 |---|---|---|---|
-| ambiente | 54,6 dB | −57,8 dBFS | 112,4 |
-| musica | 64,2 dB | −48,1 dBFS | 112,2 |
+| ambient | 54.6 dB | −57.8 dBFS | 112.4 |
+| music | 64.2 dB | −48.1 dBFS | 112.2 |
 
-Dos decimas de diferencia en un rango de 10 dB: **es un desplazamiento
-constante, no una pendiente**, que es justo lo que un solo numero puede
-corregir. Comprobarlo era el objetivo de usar dos niveles y no uno — con el
-CO2 el desvio resulto ser de pendiente y ahi ningun offset sirve.
+Two tenths apart over a 10 dB range: **it is a constant shift, not a
+slope**, which is exactly what a single number can correct. Verifying that was
+the point of using two levels rather than one — with CO₂ the deviation turned
+out to be a slope, and there no offset helps.
 
-Dos avisos honestos. La referencia es un movil, no un sonometro de clase 2:
-el cero puede estar corrido un par de dB, igual para todos. Y hay que promediar
-ventanas de decenas de segundos en los dos lados a la vez; con musica, dos
-lecturas instantaneas separadas por unos segundos llegaron a dar desfases de 95
-y 111. El campo "Calibracion del ruido" del panel permite reajustarlo contra un
-patron mejor.
+Two honest caveats. The reference is a phone, not a class-2 meter: the zero
+may be off by a couple of dB, the same for everything. And you must average
+windows of tens of seconds on both sides simultaneously; with music, two
+instantaneous readings a few seconds apart gave offsets of 95 and 111. The
+"Noise calibration" field in the panel lets you readjust against a better
+standard.
 
-**Lo que NO sirve para calibrar esto es otro medidor domestico de la casa.**
-Se intento contra un Qingping y no hay manera: en 1.983 muestras emparejadas la
-correlacion es de 0,583, y en la prueba final el monitor llego a −41,6 dBFS
-(26 dB sobre su suelo) mientras el Qingping seguia clavado en sus 36 dB estando
-vivo. El CO2 y la temperatura se igualan en una habitacion; **el ruido no**,
-depende de donde este cada aparato. Sobre esa comparacion inservible se estimo
-antes un desfase de 102, que era falso.
+**What does NOT work for calibrating this is another consumer meter in the
+house.** It was tried against a Qingping and there is no way: across 1,983
+paired samples the correlation is 0.583, and in the final test the monitor
+reached −41.6 dBFS (26 dB above its floor) while the Qingping stayed pinned
+at its 36 dB, alive and well. CO₂ and temperature equalise in a room; **noise
+does not** — it depends on where each device sits. An earlier offset of 102
+was estimated from that useless comparison, and it was wrong.
 
-**El numero es instantaneo, no un promedio.** Lo que se publica es el RMS de
-los ultimos 125 ms tal cual, la ponderacion "rapida" de un sonometro. Salta
-mucho: en una misma ventana de sala en silencio va de −69 a −55 dBFS. No es
-comparable con lo que da un medidor domestico que promedia por minutos — de
-ahi que este pueda marcar 53 dB mientras otro en la misma mesa marca 37 sin
-que ninguno de los dos este mal. Un pico corto sube a uno y al otro no.
+**The number is instantaneous, not an average.** What is published is the
+RMS of the last 125 ms as-is, a sound meter's "fast" weighting. It jumps a
+lot: within a single window of a quiet room it ranges from −69 to −55 dBFS.
+It is not comparable with a consumer meter that averages over minutes —
+which is why this one can show 53 dB while another on the same table shows
+37 without either being wrong. A short peak lifts one and not the other.
 
-**El suelo del aparato esta en unos 43 dB** (−69,2 dBFS medido con el
-ventilador parado). Por debajo de eso no distingue: da su propio ruido.
+**The device's floor is at about 43 dB** (−69.2 dBFS measured with the fan
+stopped). Below that it cannot distinguish: it reports its own noise.
 
-**Y no lleva ponderacion A.** El calculo es el RMS crudo de la señal; un
-sonometro, una app de movil o el Qingping aplican la curva A, que descarta los
-graves porque el oido tampoco los oye. Con musica, de banda ancha, la
-diferencia es pequeña — de ahi que a 75 dB coincidiera con el Qingping dentro
-de 2 dB. En una habitacion en silencio lo que queda es justo grave (nevera,
-trafico lejano, la fuente de alimentacion) y ahi la curva A resta facilmente
-10-15 dB.
+**And there is no A-weighting.** The calculation is the raw RMS of the
+signal; a sound meter, a phone app or the Qingping apply the A curve, which
+discards low frequencies because the ear does not hear them either. With
+broadband music the difference is small — which is why at 75 dB it matched
+the Qingping within 2 dB. In a quiet room what remains is precisely low
+frequencies (fridge, distant traffic, the power supply) and there the A
+curve easily subtracts 10–15 dB.
 
-Asi que el exceso en silencio tiene **dos causas candidatas**, el suelo del
-micro y la falta de ponderacion, y con estos datos no se pueden separar: una
-app de movil marcaba 28 dB de minimo donde el monitor no baja de 43. Da igual
-cual mande, la conclusion practica es la misma: **por debajo de ~50 dB el
-numero no vale**, y de 55 para arriba si. Anadir ponderacion A al filtro de
-`mic.c` es el siguiente paso si algun dia importa el rango bajo.
+So the excess in silence has **two candidate causes**, the microphone floor
+and the lack of weighting, and with this data they cannot be separated: a
+phone app showed a 28 dB minimum where the monitor does not go below 43.
+Whichever dominates, the practical conclusion is the same: **below ~50 dB
+the number is not meaningful**, from 55 upwards it is. Adding A-weighting to
+the filter in `mic.c` is the next step if the low range ever matters.
 
-**Sobre el ventilador del SEN66**, que esta dentro de la misma carcasa: la
-sospecha razonable era que fijara el suelo de ruido. Se midio parando la
-medicion (`/api/fan`) y comparando. **Primer intento (ago-2026), fallido**:
-con ventanas cortas salio que girando se media MENOS que parado, que es
-imposible; lo mandaba la variacion de la sala.
+**About the SEN66's fan**, which sits inside the same enclosure: the
+reasonable suspicion was that it sets the noise floor. It was measured by
+stopping the measurement (`/api/fan`) and comparing. **First attempt
+(Aug 2026), failed**: with short windows it came out that spinning measured
+LESS than stopped, which is impossible; room variation was in charge.
 
-**Segundo intento (09-09-2026), con cifra**: ocho ventanas de 45 s alternando
-ON y OFF, mirando el **minimo**, que es la estadistica que vale para un suelo
-(la media energetica la mandan los picos de la sala, no el aparato).
+**Second attempt (2026-09-09), with a number**: eight 45 s windows
+alternating ON and OFF, looking at the **minimum**, which is the statistic
+that matters for a floor (the energy mean is driven by the room's peaks, not
+the device).
 
-| | minimos, dBFS | media | rango |
+| | minima, dBFS | mean | range |
 |---|---|---|---|
-| ventilador ON | −68,0 −68,0 −68,4 −69,1 −69,3 | −68,6 | 1,3 |
-| ventilador OFF | −69,2 −69,6 −69,6 | **−69,5** | **0,4** |
+| fan ON | −68.0 −68.0 −68.4 −69.1 −69.3 | −68.6 | 1.3 |
+| fan OFF | −69.2 −69.6 −69.6 | **−69.5** | **0.4** |
 
-**Los tres OFF caen por debajo de los cinco ON**, y ademas son mucho mas
-repetibles entre si — justo lo que se espera si al parar el ventilador queda
-solo el ruido propio del micro. Despejando, el ventilador solo esta en unos
-**36 dB SPL**: quince por debajo de lo que marca una habitacion normal.
+**All three OFF fall below all five ON**, and they are also much more
+repeatable among themselves — exactly what you expect if stopping the fan
+leaves only the microphone's own noise. Solving for it, the fan alone is at
+about **36 dB SPL**: fifteen below what a normal room shows.
 
-**Conclusion: es real pero irrelevante**, no "inaudible por falta de metodo"
-como se cerro la primera vez. Con honestidad: la diferencia son 0,9 dB y los
-propios ON varian 1,3 dB entre ventanas, o sea que sigue rozando el limite de
-lo que el metodo resuelve. Lo que ya no falla es el signo.
+**Conclusion: real but irrelevant**, not "inaudible for lack of method" as
+it was closed the first time. Honestly: the difference is 0.9 dB and the ON
+readings themselves vary by 1.3 dB between windows, so it still brushes the
+limit of what the method resolves. What no longer fails is the sign.
 
-### La carcasa y el aire
+### The enclosure and the air
 
-El SEN66 tiene **dos entradas y una salida**, las tres en la misma cara: el
-hueco cuadrado y la membrana redonda son las entradas, y el ventilador es la
-salida. Sensirion pide dos cosas que no se cumplen solo con "no taparlas"
-([guía mecánica](https://sensirion.com/media/documents/EA641247/6977159F/PS_AN_SEN6x_Mechanical_Design_and_Assembly_Guidelines_D1.pdf)):
+The SEN66 has **two inlets and one outlet**, all three on the same face: the
+square opening and the round membrane are the inlets, and the fan is the
+outlet. Sensirion asks for two things that "don't cover them" alone does not
+satisfy ([mechanical guide](https://sensirion.com/media/documents/EA641247/6977159F/PS_AN_SEN6x_Mechanical_Design_and_Assembly_Guidelines_D1.pdf)):
 
-- **Separar la salida de las entradas**, o el sensor acaba midiendo el aire
-  que él mismo acaba de expulsar.
-- **Aislar las tres del interior de la carcasa**, o el ventilador aspira aire
-  de dentro del aparato, caliente por el ESP32 y la pantalla, en vez de aire
-  de la habitación.
+- **Separate the outlet from the inlets**, or the sensor ends up measuring
+  the air it just expelled.
+- **Isolate all three from the inside of the enclosure**, or the fan draws
+  air from inside the device, warmed by the ESP32 and the display, instead of
+  room air.
 
-Si añades conductos, las áreas mínimas son **56 mm² por entrada y 148 mm² en
-la salida**. Y la única orientación desaconsejada es con los agujeros **hacia
-arriba**: cae polvo dentro y el sensor envejece antes.
+If you add ducts, the minimum areas are **56 mm² per inlet and 148 mm² at
+the outlet**. And the only discouraged orientation is with the holes
+**facing up**: dust falls in and the sensor ages sooner.
 
-**La carcasa AirRing cumple las dos, y está comprobado midiendo**, que es la
-única forma de saberlo:
+**The AirRing enclosure meets both, and it is verified by measurement**,
+which is the only way to know:
 
-- *No aspira de dentro*: la temperatura queda a **+0,4 °C** de un termómetro
-  independiente. Si el aire viniera del interior serían varios grados.
-- *No recircula*: se enciende un incienso al lado y se cronometra la bajada de
-  PM2.5 contra un sensor de referencia. Constante de bajada **9,7 min frente a
-  8,7** del otro aparato. Si reinspirara su salida, su cola sería mucho más
-  larga que la de la habitación.
+- *It does not draw from inside*: temperature stays within **+0.4 °C** of an
+  independent thermometer. If the air came from inside it would be several
+  degrees.
+- *It does not recirculate*: light an incense stick next to it and time the
+  PM2.5 decay against a reference sensor. Decay constant **9.7 min versus
+  8.7** for the other device. If it re-inhaled its own outlet, its tail would
+  be much longer than the room's.
 
-### Sobre medir el desvío
+### On measuring the deviation
 
-Aquí van 22 horas de medidas reales contra un Qingping Air Monitor 2 y un
-termómetro independiente, los tres juntos en la misma mesa. Sirven de aviso,
-porque cada paso del camino invitaba a corregir algo que no había que corregir.
+Here are 22 hours of real measurements against a Qingping Air Monitor 2 and
+an independent thermometer, all three on the same table. They serve as a
+warning, because every step of the way invited a correction that should not
+have been made.
 
-**Dos aparatos dan la diferencia, nunca quién acierta.** Doce horas contra el
-Qingping daban +1,05 °C y −8,4 % de humedad, muy constantes, y la conclusión
-obvia era meter −1,1 °C. Un tercer termómetro entre los dos lo desmontó:
-marcaba 26,1 °C y 56 %, o sea el SEN66 a **+0,4 °C** y el Qingping a −0,4 °C.
-El descuadre de humedad era **del Qingping** (+8,9 %), no del SEN66. Alinear
-uno con otro solo habría propagado el error del que se toma como patrón.
+**Two devices give you the difference, never who is right.** Twelve hours
+against the Qingping gave +1.05 °C and −8.4 % humidity, very constant, and
+the obvious conclusion was to enter −1.1 °C. A third thermometer between the
+two dismantled that: it read 26.1 °C and 56 %, i.e. the SEN66 at **+0.4 °C**
+and the Qingping at −0.4 °C. The humidity mismatch was **the Qingping's**
+(+8.9 %), not the SEN66's. Aligning one to the other would only have
+propagated the error of whichever one was taken as the standard.
 
-**Un día entero, no unas horas.** Esa diferencia de temperatura tan estable lo
-era porque solo había datos diurnos. Con el ciclo completo va de **+0,20 a
-+1,30 °C**: de madrugada se estrecha porque el otro aparato se calienta y el
-SEN66 no. Varía tanto como valdría la corrección, así que un offset fijo
-acierta a una hora y falla a otra.
+**A whole day, not a few hours.** That temperature difference was so stable
+because there was only daytime data. With the full cycle it goes from
+**+0.20 to +1.30 °C**: in the small hours it narrows because the other device
+warms up and the SEN66 does not. It varies as much as the correction would
+be worth, so a fixed offset is right at one hour and wrong at another.
 
-**Comprobar a varias concentraciones.** De tarde el SEN66 marcaba 44 ppm menos
-de CO₂ que el Qingping y parecía un error claro. Con la noche entera se ve que
-no es un desplazamiento sino **pendiente**:
+**Check at several concentrations.** In the afternoon the SEN66 read 44 ppm
+less CO₂ than the Qingping and it looked like a clear error. With the whole
+night you can see it is not an offset but a **slope**:
 
-| CO₂ (Qingping) | SEN66 | diferencia |
+| CO₂ (Qingping) | SEN66 | difference |
 |---|---|---|
 | 451 | 407 | −44 |
 | 545 | 517 | −28 |
@@ -522,90 +601,122 @@ no es un desplazamiento sino **pendiente**:
 | 731 | 752 | +22 |
 | 811 | 836 | +24 |
 
-`SEN66 = 1,20 × Qingping − 138`, y **se cruzan en 675 ppm**. Ninguno de los dos
-está "mal": tienen ganancias distintas y coinciden en el punto de cruce. Con
-datos de un solo tramo, cualquiera de los dos parece el equivocado.
+`SEN66 = 1.20 × Qingping − 138`, and **they cross at 675 ppm**. Neither is
+"wrong": they have different gains and agree at the crossing point. With
+data from a single range, either one looks like the wrong one.
 
-**No confundir un sensor bien calibrado con uno anclado.** El SEN66 pasó cinco
-horas de tarde clavado en 403 ppm, que es sospechosamente la línea base del
-aire exterior, y parecía que la autocalibración le había fijado el cero
-demasiado abajo. La curva nocturna lo aclaró: 403 → 500 → 642 → 720 → **831 al
-amanecer**, la subida de manual de un cuarto cerrado con gente durmiendo. La
-tarde estaba ventilada de verdad y el sensor la siguió.
+**Do not confuse a well-calibrated sensor with a pinned one.** The SEN66
+spent five afternoon hours stuck at 403 ppm, suspiciously the outdoor
+baseline, and it looked as if auto-calibration had set its zero too low. The
+night curve cleared it up: 403 → 500 → 642 → 720 → **831 at dawn**, the
+textbook rise of a closed room with people sleeping. The afternoon really was
+well ventilated and the sensor followed it.
 
-**Conclusión: en este aparato no se aplica ningún offset.** Los +0,4 °C contra
-la referencia caben dentro de la tolerancia del propio SEN66 (±0,5 °C), y la
-diferencia ni siquiera es constante. Corregir eso sería ajustar a ruido, con el
-agravante de que un offset se olvida y se queda ahí para siempre.
+**Conclusion: no offset is applied on this device.** The +0.4 °C against the
+reference fits within the SEN66's own tolerance (±0.5 °C), and the
+difference is not even constant. Correcting that would be fitting to noise,
+with the added problem that an offset gets forgotten and stays there
+forever.
 
-## Estructura
+## Structure
 
 ```
 main/
-  app_main.c      orden de arranque, tareas y reloj
-  board.h         pinout verificado de la placa (no re-derivar)
-  display.c       CO5300 por QSPI + CST9217 + port de LVGL
-  sen66.c         driver I2C del sensor (bus propio, CRC-8, autodetección)
-  air.c           lógica pura: métricas, umbrales, niveles, colores
-  history.c       histórico circular de 24 h en PSRAM
-  ui.c            las cinco páginas (solo LVGL, sin ESP-IDF)
-  net.c           WiFi estación + portal + SNTP
-  ha_mqtt.c       autodescubrimiento y publicación
-  webcfg.c        servidor web, API JSON y OTA
-  settings.c      persistencia en NVS
-  rtc_pcf85063.c  RTC (hora real sin red)
-sim/              simulador SDL2 que reutiliza air.c, history.c y ui.c
+  app_main.c      boot order, tasks, clock, battery-saver cycle, fan cleaning
+  board.h         verified board pinout (do not re-derive)
+  display.c       CO5300 over QSPI + CST9217 + LVGL port (fault-tolerant touch)
+  sen66.c         sensor I2C driver (own bus, CRC-8, auto-detection)
+  air.c           pure logic: metrics, thresholds, levels, colours
+  history.c       24 h circular history in PSRAM
+  ui.c            the six pages (LVGL only, no ESP-IDF)
+  i18n.c          display strings in ES / EN / DE
+  net.c           WiFi station + WPA2 setup portal + SNTP
+  ha_mqtt.c       auto-discovery and publishing
+  webcfg.c        web server, JSON API, auth/CSRF guards and OTA
+  settings.c      NVS persistence
+  rtc_pcf85063.c  RTC (real time without network)
+sim/              SDL2 simulator reusing air.c, history.c and ui.c
 ```
 
-`air.c`, `history.c` y `ui.c` no incluyen nada de ESP-IDF: es lo que permite
-compilarlos igual en el PC.
+`air.c`, `history.c` and `ui.c` include nothing from ESP-IDF: that is what
+lets them compile unchanged on the PC.
 
-## Estado
+## What changed in this fork
 
-Compila limpio (ESP-IDF 5.5.2, 1,5 MB, sin warnings) y la UI está verificada
-en el simulador página a página. **Todavía no se ha probado contra hardware
-real** — el SEN66 está de camino. Al montarlo queda por ajustar la rotación
-de pantalla `BOARD_LCD_ROTATION` según cómo quede el USB-C en la carcasa.
+Relative to upstream, as of v1.8.4 (September 2026):
 
-## Licencia
+- **Security**: optional Basic Auth, `X-CSRF` + `Host` checks on the API,
+  secrets export gated behind a panel password, WPA2 rescue portal that
+  closes on reconnect, OTA rollback, signed-OTA config prepared, JSON
+  escaping and overflow-safe response builders.
+- **Battery saver**: optional cyclic idling of the SEN66 on battery.
+- **Fan cleaning actually works**: the measurement is stopped first, from the
+  sensor task, for both the button and the weekly run.
+- **Touch no longer aborts the firmware**: `esp_lvgl_port` wraps the touch
+  read in `ESP_ERROR_CHECK`, and the CST9217 NACKs once during WiFi PHY
+  start-up on this board. The port's touch input is replaced by an equivalent
+  one that treats a failed read as "no touch". Without this, every first boot
+  of an OTA image was rolled back.
+- **Languages**: German factory default, German web panel with proper
+  umlauts, English log output.
+- **Home Assistant**: entity names aligned with Project Aura (`Air Status`,
+  `VOC Index`, …); `unique_id`s unchanged.
+- **Backup** now also includes the noise calibration offset.
 
-**[PolyForm Noncommercial 1.0.0](LICENSE).** Puedes usarlo, modificarlo y
-compartirlo libremente **para cualquier fin no comercial**: uso personal,
-investigación, docencia, organizaciones sin ánimo de lucro. Lo que no puedes
-es venderlo ni usarlo dentro de un producto o servicio de pago.
+## Status
 
-Conviene decirlo claro: **esto no es software libre** en el sentido de la OSI,
-precisamente porque restringe el uso comercial. Es una decisión deliberada.
-Si quieres usarlo comercialmente, escribe y lo hablamos.
+Compiles clean (ESP-IDF 5.5.2, ~1.6 MB, no warnings) and **runs on real
+hardware**: the fork has been developed and verified on a Waveshare
+ESP32-S3-Touch-AMOLED-1.75 with a SEN66 (sensor firmware 4.0), updated
+between versions over OTA, with the rollback mechanism exercised for real.
+The upstream project was written without the hardware at hand, which is
+where the two hardware-only bugs above came from.
 
-Y sin garantía de ninguna clase: es un proyecto doméstico, **no un instrumento
-de medida certificado**. No lo uses para nada donde la salud de alguien
-dependa del número que muestre.
+## Licence
 
-### Lo que no cubre esa licencia
+**[PolyForm Noncommercial 1.0.0](LICENSE).** You may use, modify and share it
+freely **for any non-commercial purpose**: personal use, research, teaching,
+non-profit organisations. What you may not do is sell it or use it inside a
+paid product or service.
 
-- Las **fuentes** de `main/fonts/` derivan de Montserrat y siguen bajo
+To be clear: **this is not free software** in the OSI sense, precisely
+because it restricts commercial use. That is a deliberate decision by the
+original author, and this fork keeps it. If you want to use it commercially,
+get in touch with the upstream author.
+
+And no warranty of any kind: it is a home project, **not a certified
+measuring instrument**. Do not use it for anything where someone's health
+depends on the number it shows.
+
+### What that licence does not cover
+
+- The **fonts** in `main/fonts/` derive from Montserrat and remain under
   [SIL OFL 1.1](main/fonts/NOTICE.md).
-- Las **dependencias** (ESP-IDF, LVGL, los componentes de Espressif y
-  Waveshare) mantienen las suyas, que son permisivas.
-- Si algún día hay **modelo 3D** para imprimir, irá con su propia licencia:
-  Creative Commons desaconseja expresamente sus licencias para software, y
-  al revés PolyForm no está pensada para objetos físicos.
+- The **dependencies** (ESP-IDF, LVGL, the Espressif and Waveshare
+  components) keep their own licences, which are permissive.
+- If there is ever a **3D model** to print, it goes with its own licence:
+  Creative Commons expressly discourages its licences for software, and
+  conversely PolyForm is not meant for physical objects.
 
-## Agradecimientos
+## Acknowledgements
 
+- **[socquique](https://github.com/socquique/Monitor-SEN66)**, the original
+  author, for the firmware this fork builds on — and for documenting his
+  measurements and decisions so thoroughly that most of this README is his.
 - **[PowerDot Air](https://makerworld.com/es/models/3029930-powerdot-air-home-assistant-air-sensor)**
-  de Scoolt96, sobre la Waveshare 1.46" LCD, del que salió la idea. Su
-  firmware es cerrado, así que aquí no hay una línea suya: esto es una
-  implementación propia para otra pantalla.
-- **Sensirion**, por publicar sus drivers con documentación de verdad. El
-  protocolo del SEN66 de este firmware está verificado contra
+  by Scoolt96, on the Waveshare 1.46" LCD, where the idea came from. Its
+  firmware is closed, so there is not a line of it here: this is an
+  independent implementation for a different display.
+- **[Project Aura](https://github.com/21cncstudio/project_aura)** by
+  21CNCStudio, whose Home Assistant entity naming this fork adopts.
+- **Sensirion**, for publishing their drivers with real documentation. This
+  firmware's SEN66 protocol is verified against
   [raspberry-pi-i2c-sen66](https://github.com/Sensirion/raspberry-pi-i2c-sen66).
-- **Espressif**, por ESP-IDF y por el componente
-  [es8311](https://components.espressif.com/components/espressif/es8311), del
-  que se copió la secuencia de registros del códec de audio (usa la API
-  antigua de I2C, así que aquí va reescrita sobre la nueva).
-- **Waveshare**, por publicar la
-  [referencia de hardware](https://github.com/waveshareteam/ESP32-S3-Touch-AMOLED-1.75)
-  de la placa. Ojo: el orden de pines del header que da NO coincide con la
-  serigrafía; manda el cobre.
+- **Espressif**, for ESP-IDF and for the
+  [es8311](https://components.espressif.com/components/espressif/es8311)
+  component, from which the audio codec's register sequence was copied (it
+  uses the old I2C API, so here it is rewritten on the new one).
+- **Waveshare**, for publishing the board's
+  [hardware reference](https://github.com/waveshareteam/ESP32-S3-Touch-AMOLED-1.75).
+  Careful: the header pin order it gives does NOT match the silk screen; the
+  copper wins.
