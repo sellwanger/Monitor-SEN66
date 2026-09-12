@@ -128,21 +128,21 @@ static void clock_from_rtc(void)
     struct tm tm_utc;
     esp_err_t err = rtc_pcf85063_get(&tm_utc);
     if (err == ESP_ERR_INVALID_STATE) {
-        ESP_LOGW(TAG, "el RTC perdio la hora (sin pila?); espero a NTP");
+        ESP_LOGW(TAG, "RTC lost the time (no backup cell?); waiting for NTP");
         return;
     }
     if (err != ESP_OK) {
-        ESP_LOGW(TAG, "RTC no disponible: %s", esp_err_to_name(err));
+        ESP_LOGW(TAG, "RTC not available: %s", esp_err_to_name(err));
         return;
     }
     const time_t t = tm_to_utc(&tm_utc);
     if (t < 1700000000) { // anterior a nov-2023: basura
-        ESP_LOGW(TAG, "hora del RTC no creible, espero a NTP");
+        ESP_LOGW(TAG, "RTC time not plausible, waiting for NTP");
         return;
     }
     struct timeval tv = {.tv_sec = t};
     settimeofday(&tv, NULL);
-    ESP_LOGI(TAG, "hora tomada del RTC: %s", asctime(&tm_utc));
+    ESP_LOGI(TAG, "time taken from RTC: %s", asctime(&tm_utc));
 }
 
 static void clock_to_rtc(void)
@@ -150,7 +150,7 @@ static void clock_to_rtc(void)
     const time_t now = time(NULL);
     struct tm tm_utc;
     gmtime_r(&now, &tm_utc);
-    if (rtc_pcf85063_set(&tm_utc) == ESP_OK) ESP_LOGI(TAG, "RTC puesto en hora");
+    if (rtc_pcf85063_set(&tm_utc) == ESP_OK) ESP_LOGI(TAG, "RTC set from system time");
 }
 
 // ------------------------------------------------------------------ sensor
@@ -161,12 +161,12 @@ static void voc_state_restore(void)
 {
     uint8_t st[SEN66_VOC_STATE_LEN];
     if (settings_load_voc_state(st, sizeof(st)) != ESP_OK) {
-        ESP_LOGI(TAG, "sin estado VOC guardado: el sensor aprendera de cero");
+        ESP_LOGI(TAG, "no saved VOC state: sensor will learn from scratch");
         return;
     }
     // Solo cala con el sensor parado, de ahi que esto vaya antes del start.
     if (sen66_set_voc_state(st) == ESP_OK) {
-        ESP_LOGI(TAG, "estado del algoritmo VOC restaurado");
+        ESP_LOGI(TAG, "VOC algorithm state restored");
     }
 }
 
@@ -178,7 +178,7 @@ static void voc_state_save(void)
     if (settings_save_voc_state(st, sizeof(st)) == ESP_OK) {
         // Medimos lo que cuesta: escribir en NVS bloquea, y queriamos saber
         // si estos 8 bytes justifican la fama de congelar un segundo.
-        ESP_LOGI(TAG, "estado VOC guardado (%lld ms)",
+        ESP_LOGI(TAG, "VOC state saved (%lld ms)",
                  (esp_timer_get_time() - t0) / 1000);
     }
 }
@@ -191,13 +191,13 @@ static void sensor_configure(void)
 
     if (sen66_serial(serial, sizeof(serial)) == ESP_OK &&
         sen66_version(&maj, &min) == ESP_OK) {
-        ESP_LOGI(TAG, "SEN66 serie %s, firmware %u.%u", serial, maj, min);
+        ESP_LOGI(TAG, "SEN66 serial %s, firmware %u.%u", serial, maj, min);
     }
 
     // Estos ajustes exigen el sensor parado, asi que van antes del start.
     if (cfg->temp_offset_dc != 0) {
         sen66_set_temp_offset(cfg->temp_offset_dc / 10.0f);
-        ESP_LOGI(TAG, "correccion de temperatura: %+.1f C", cfg->temp_offset_dc / 10.0f);
+        ESP_LOGI(TAG, "temperature offset: %+.1f C", cfg->temp_offset_dc / 10.0f);
     }
     if (cfg->altitude_m != 0) sen66_set_altitude(cfg->altitude_m);
     sen66_set_co2_asc(cfg->co2_asc);
@@ -220,7 +220,7 @@ static void fan_clean_check(void)
     }
     if ((uint32_t)ahora - cfg->last_fan_clean < FAN_CLEAN_PERIOD_S) return;
 
-    ESP_LOGI(TAG, "limpieza semanal del ventilador");
+    ESP_LOGI(TAG, "weekly fan cleaning");
     if (sen66_fan_clean() == ESP_OK) {
         cfg->last_fan_clean = (uint32_t)ahora;
         settings_save();
@@ -238,11 +238,11 @@ static void alarm_check(float co2)
 
     if (!disparada && co2 >= cfg->alarm_co2_ppm) {
         disparada = true;
-        ESP_LOGW(TAG, "CO2 %.0f ppm: aviso", co2);
+        ESP_LOGW(TAG, "CO2 %.0f ppm: alert", co2);
         sound_play(SOUND_ALERT);
     } else if (disparada && co2 <= cfg->alarm_clear_ppm) {
         disparada = false;
-        ESP_LOGI(TAG, "CO2 %.0f ppm: ventilado", co2);
+        ESP_LOGI(TAG, "CO2 %.0f ppm: cleared", co2);
         sound_play(SOUND_CLEAR);
     }
 }
@@ -329,7 +329,7 @@ static void recal_run(uint16_t ppm)
     if (tengo_voc) sen66_set_voc_state(voc);
     if (sen66_start() != ESP_OK) {
         strlcat(msg, ", und der Sensor startet nicht neu", sizeof(msg));
-        ESP_LOGE(TAG, "el sensor no rearranca tras recalibrar");
+        ESP_LOGE(TAG, "sensor did not restart after recalibration");
         s_sensor_ok = false;  // que lo recoja la deteccion de sensor muerto
     }
     recal_set_msg(msg);
@@ -339,7 +339,7 @@ static void recal_run(uint16_t ppm)
 // hasta el siguiente reinicio a mano.
 static void sensor_recover(void)
 {
-    ESP_LOGW(TAG, "el sensor lleva %d s sin responder: reiniciando el bus", SENSOR_DEAD_S);
+    ESP_LOGW(TAG, "sensor silent for %d s: resetting the bus", SENSOR_DEAD_S);
     sen66_deinit();
     vTaskDelay(pdMS_TO_TICKS(200));
     if (sen66_init(false) != ESP_OK) return;
@@ -347,7 +347,7 @@ static void sensor_recover(void)
     voc_state_restore();
     if (sen66_start() != ESP_OK) { sen66_deinit(); return; }
     s_sensor_ok = true;
-    ESP_LOGI(TAG, "sensor recuperado");
+    ESP_LOGI(TAG, "sensor recovered");
 }
 
 // ------------------------------------------- ahorro en bateria (ciclo)
@@ -366,11 +366,11 @@ static void saver_pause(void)
     // pero guardarlo cuesta nada y cubre firmwares del sensor mas viejos.
     s_saver_have_voc = (sen66_get_voc_state(s_saver_voc) == ESP_OK);
     if (sen66_stop() != ESP_OK) {
-        ESP_LOGW(TAG, "ahorro: el sensor no se para, sigo midiendo");
+        ESP_LOGW(TAG, "power saver: sensor would not stop, keep measuring");
         return;
     }
     s_saver_idle = true;
-    ESP_LOGI(TAG, "ahorro: sensor en pausa");
+    ESP_LOGI(TAG, "power saver: sensor paused");
 }
 
 static void saver_resume(void)
@@ -379,11 +379,11 @@ static void saver_resume(void)
     s_saver_idle = false;
     s_alive_since_us = esp_timer_get_time(); // gracia para la deteccion de muerto
     if (sen66_start() != ESP_OK) {
-        ESP_LOGE(TAG, "ahorro: el sensor no rearranca");
+        ESP_LOGE(TAG, "power saver: sensor did not restart");
         s_sensor_ok = false;  // que lo recoja sensor_recover
         return;
     }
-    ESP_LOGI(TAG, "ahorro: sensor midiendo");
+    ESP_LOGI(TAG, "power saver: sensor measuring");
 }
 
 static void saver_tick(int64_t now, bool on_battery)
@@ -444,14 +444,14 @@ static void sensor_task(void *arg)
                 const bool sin_usb = b.present && !b.vbus;
                 if (sin_usb != on_battery) {
                     on_battery = sin_usb;
-                    ESP_LOGW(TAG, "perfil de %s", on_battery ? "BATERIA" : "red");
+                    ESP_LOGW(TAG, "power profile: %s", on_battery ? "BATTERY" : "mains");
                     net_set_power_save(on_battery);
                     s_on_battery = on_battery; // la UI lo recoge en su tick
                 }
                 if (b.present && now >= next_batt_us) {
                     next_batt_us = now + (int64_t)BATT_LOG_PERIOD_S * 1000000;
-                    ESP_LOGI(TAG, "bateria %d%% (%u mV)%s", b.percent, b.millivolts,
-                             b.charging ? " cargando" : b.vbus ? " con USB" : " EN BATERIA");
+                    ESP_LOGI(TAG, "battery %d%% (%u mV)%s", b.percent, b.millivolts,
+                             b.charging ? " charging" : b.vbus ? " on USB" : " ON BATTERY");
                 }
             }
         }
@@ -467,7 +467,7 @@ static void sensor_task(void *arg)
             const bool encender = s_fan_request > 0;
             s_fan_request = 0;
             const esp_err_t e = encender ? sen66_start() : sen66_stop();
-            ESP_LOGW(TAG, "medicion %s a mano: %s", encender ? "arrancada" : "parada",
+            ESP_LOGW(TAG, "measurement %s manually: %s", encender ? "started" : "stopped",
                      esp_err_to_name(e));
             // Parada la medicion no llegan lecturas, y a los SENSOR_DEAD_S la
             // deteccion de sensor muerto intentaria recuperarlo. Para un
@@ -498,7 +498,7 @@ static void sensor_task(void *arg)
                 xSemaphoreGive(s_lock);
                 air_history_push(s_hist, &fresh, time(NULL));
             } else if (err != ESP_ERR_NOT_FINISHED) {
-                ESP_LOGW(TAG, "lectura fallida: %s", esp_err_to_name(err));
+                ESP_LOGW(TAG, "read failed: %s", esp_err_to_name(err));
             }
         }
 
@@ -651,7 +651,7 @@ void app_main(void)
         sensor_configure();
         voc_state_restore();
         if (sen66_start() != ESP_OK) {
-            ESP_LOGE(TAG, "no arranco la medicion");
+            ESP_LOGE(TAG, "measurement did not start");
             s_sensor_ok = false;
         }
     }
@@ -679,13 +679,13 @@ void app_main(void)
     if (pmu_available()) {
         pmu_status_t b;
         if (pmu_read(&b) == ESP_OK) {
-            ESP_LOGI(TAG, "bateria: %s, %d%%, %u mV%s%s",
-                     b.present ? "presente" : "ausente", b.percent, b.millivolts,
-                     b.charging ? ", cargando" : "", b.vbus ? ", con USB" : "");
+            ESP_LOGI(TAG, "battery: %s, %d%%, %u mV%s%s",
+                     b.present ? "present" : "absent", b.percent, b.millivolts,
+                     b.charging ? ", charging" : "", b.vbus ? ", on USB" : "");
         }
         uint16_t in_ma = 0, chg_ma = 0;
         if (pmu_charge_limits(&in_ma, &chg_ma) == ESP_OK) {
-            ESP_LOGI(TAG, "limites: entrada USB %u mA, carga %u mA", in_ma, chg_ma);
+            ESP_LOGI(TAG, "limits: USB input %u mA, charge %u mA", in_ma, chg_ma);
         }
     }
 
@@ -701,11 +701,11 @@ void app_main(void)
         if (run && esp_ota_get_state_partition(run, &st) == ESP_OK &&
             st == ESP_OTA_IMG_PENDING_VERIFY) {
             esp_ota_mark_app_valid_cancel_rollback();
-            ESP_LOGI(TAG, "imagen OTA confirmada (rollback cancelado)");
+            ESP_LOGI(TAG, "OTA image confirmed (rollback cancelled)");
         }
     }
 
-    ESP_LOGI(TAG, "arranque completo (heap interno libre: %u KB, PSRAM: %u KB)",
+    ESP_LOGI(TAG, "startup complete (free internal heap: %u KB, PSRAM: %u KB)",
              (unsigned)(heap_caps_get_free_size(MALLOC_CAP_INTERNAL) / 1024),
              (unsigned)(heap_caps_get_free_size(MALLOC_CAP_SPIRAM) / 1024));
 }

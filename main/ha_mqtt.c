@@ -184,7 +184,7 @@ static void publish_discovery_battery(void)
         n += snprintf(payload + n, sizeof(payload) - n, "}");
         esp_mqtt_client_publish(s_client, topic, payload, n, 0, 1);
     }
-    ESP_LOGI(TAG, "bateria detectada: publicadas sus 4 entidades");
+    ESP_LOGI(TAG, "battery detected: its 4 entities published");
 }
 
 static void publish_discovery(void)
@@ -193,13 +193,13 @@ static void publish_discovery(void)
     // en vez de Home Assistant). Sin esto los mensajes salian igual, con el
     // tema empezando por '/', que es basura retenida en el broker.
     if (settings_get()->mqtt_prefix[0] == '\0') {
-        ESP_LOGI(TAG, "sin prefijo de descubrimiento, no publico configuracion");
+        ESP_LOGI(TAG, "no discovery prefix, not publishing config");
         return;
     }
     for (int m = 0; m < AIR_METRIC_COUNT; m++) publish_discovery_one((air_metric_t)m);
     publish_discovery_extras();
     publish_discovery_battery();
-    ESP_LOGI(TAG, "descubrimiento publicado (%d entidades del aire)", AIR_METRIC_COUNT + 2);
+    ESP_LOGI(TAG, "discovery published (%d air entities)", AIR_METRIC_COUNT + 2);
 }
 
 static void mqtt_event(void *arg, esp_event_base_t base, int32_t id, void *data)
@@ -209,7 +209,7 @@ static void mqtt_event(void *arg, esp_event_base_t base, int32_t id, void *data)
     switch ((esp_mqtt_event_id_t)id) {
     case MQTT_EVENT_CONNECTED:
         s_connected = true;
-        ESP_LOGI(TAG, "conectado al broker");
+        ESP_LOGI(TAG, "connected to broker");
         // Reafirmamos lo que sabemos del sensor, que puede estar caido justo
         // cuando el broker vuelve.
         esp_mqtt_client_publish(s_client, s_avty_topic,
@@ -218,11 +218,11 @@ static void mqtt_event(void *arg, esp_event_base_t base, int32_t id, void *data)
         break;
     case MQTT_EVENT_DISCONNECTED:
         s_connected = false;
-        ESP_LOGW(TAG, "desconectado del broker");
+        ESP_LOGW(TAG, "disconnected from broker");
         break;
     case MQTT_EVENT_ERROR:
         if (e && e->error_handle) {
-            ESP_LOGW(TAG, "error mqtt (tipo %d)", e->error_handle->error_type);
+            ESP_LOGW(TAG, "mqtt error (type %d)", e->error_handle->error_type);
         }
         break;
     default:
@@ -234,7 +234,7 @@ void ha_mqtt_start(void)
 {
     const settings_t *cfg = settings_get();
     if (cfg->mqtt_uri[0] == '\0') {
-        ESP_LOGW(TAG, "sin broker configurado, no publico");
+        ESP_LOGW(TAG, "no broker configured, not publishing");
         return;
     }
     if (s_client) return;
@@ -258,12 +258,12 @@ void ha_mqtt_start(void)
     };
     s_client = esp_mqtt_client_init(&mcfg);
     if (!s_client) {
-        ESP_LOGE(TAG, "no se pudo crear el cliente para '%s'", cfg->mqtt_uri);
+        ESP_LOGE(TAG, "could not create client for '%s'", cfg->mqtt_uri);
         return;
     }
     esp_mqtt_client_register_event(s_client, ESP_EVENT_ANY_ID, mqtt_event, NULL);
     esp_mqtt_client_start(s_client);
-    ESP_LOGI(TAG, "cliente arrancado hacia %s", cfg->mqtt_uri);
+    ESP_LOGI(TAG, "client started towards %s", cfg->mqtt_uri);
 }
 
 void ha_mqtt_stop(void)
@@ -282,7 +282,7 @@ void ha_mqtt_set_available(bool available)
 {
     if (available == s_available) return;
     s_available = available;
-    ESP_LOGW(TAG, "disponibilidad -> %s", available ? "online" : "offline");
+    ESP_LOGW(TAG, "availability -> %s", available ? "online" : "offline");
     if (s_client && s_connected) {
         esp_mqtt_client_publish(s_client, s_avty_topic,
                                 available ? "online" : "offline", 0, 1, 1);

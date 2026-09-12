@@ -51,7 +51,7 @@ static void touch_read_cb(lv_indev_t *indev, lv_indev_data_t *data)
         esp_lcd_touch_get_data(tp, pts, &cnt, CONFIG_ESP_LCD_TOUCH_MAX_POINTS) != ESP_OK) {
         // Se anota, pero sin inundar el log si el bus tiene un mal dia.
         static unsigned fails;
-        if ((++fails & 0x3F) == 1) ESP_LOGW(TAG, "lectura del tactil fallida (x%u)", fails);
+        if ((++fails & 0x3F) == 1) ESP_LOGW(TAG, "touch read failed (x%u)", fails);
         data->state = LV_INDEV_STATE_RELEASED;
         return;
     }
@@ -80,13 +80,13 @@ static esp_err_t touch_attach(lv_display_t *disp, esp_lcd_touch_handle_t touch)
         lv_indev_set_driver_data(s_touch_indev, touch);
     }
     lvgl_port_unlock();
-    ESP_RETURN_ON_FALSE(s_touch_indev, ESP_ERR_NO_MEM, TAG, "indev tactil");
+    ESP_RETURN_ON_FALSE(s_touch_indev, ESP_ERR_NO_MEM, TAG, "touch indev");
 
     // La ISR se registra DESPUES de crear el indev: asi nunca despierta a la
     // tarea con un puntero nulo.
     if (has_int) {
         ESP_RETURN_ON_ERROR(esp_lcd_touch_register_interrupt_callback(touch, touch_isr_cb),
-                            TAG, "isr tactil");
+                            TAG, "touch isr");
     }
     return ESP_OK;
 }
@@ -228,7 +228,7 @@ esp_err_t display_init(void)
     int rows = (int)(usable / (BOARD_LCD_H_RES * sizeof(uint16_t)));
     if (rows > 185) rows = 185; // por encima no aporta: son 466 lineas
     if (rows < 40) rows = 40;   // por debajo el refresco se nota a tirones
-    ESP_LOGI(TAG, "bloque DMA interno libre %u KB -> buffer LVGL de %d filas (%u KB)",
+    ESP_LOGI(TAG, "largest free internal DMA block %u KB -> LVGL buffer of %d rows (%u KB)",
              (unsigned)(largest / 1024), rows,
              (unsigned)(rows * BOARD_LCD_H_RES * 2 / 1024));
 
@@ -264,7 +264,7 @@ esp_err_t display_init(void)
 
     ESP_RETURN_ON_ERROR(touch_attach(s_disp, touch), TAG, "add touch");
 
-    ESP_LOGI(TAG, "pantalla %dx%d lista", BOARD_LCD_H_RES, BOARD_LCD_V_RES);
+    ESP_LOGI(TAG, "display %dx%d ready", BOARD_LCD_H_RES, BOARD_LCD_V_RES);
     return ESP_OK;
 }
 

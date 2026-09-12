@@ -77,10 +77,10 @@ static uint8_t crc8(const uint8_t *d, size_t n)
 // mientras esta ocupado, de ahi la espera explicita de la hoja de datos).
 static esp_err_t cmd_write(uint16_t cmd, const uint16_t *args, int nargs, int delay_ms)
 {
-    ESP_RETURN_ON_FALSE(s_dev, ESP_ERR_INVALID_STATE, TAG, "sin init");
+    ESP_RETURN_ON_FALSE(s_dev, ESP_ERR_INVALID_STATE, TAG, "not initialised");
 
     uint8_t buf[2 + 8 * 3];
-    ESP_RETURN_ON_FALSE(nargs <= 8, ESP_ERR_INVALID_ARG, TAG, "demasiados args");
+    ESP_RETURN_ON_FALSE(nargs <= 8, ESP_ERR_INVALID_ARG, TAG, "too many args");
 
     int n = 0;
     buf[n++] = (uint8_t)(cmd >> 8);
@@ -101,8 +101,8 @@ static esp_err_t cmd_write(uint16_t cmd, const uint16_t *args, int nargs, int de
 // Lee `nwords` palabras (3 bytes cada una en el bus: dato + dato + CRC).
 static esp_err_t cmd_read(uint16_t *out, int nwords)
 {
-    ESP_RETURN_ON_FALSE(s_dev, ESP_ERR_INVALID_STATE, TAG, "sin init");
-    ESP_RETURN_ON_FALSE(nwords <= 16, ESP_ERR_INVALID_ARG, TAG, "lectura larga");
+    ESP_RETURN_ON_FALSE(s_dev, ESP_ERR_INVALID_STATE, TAG, "not initialised");
+    ESP_RETURN_ON_FALSE(nwords <= 16, ESP_ERR_INVALID_ARG, TAG, "read too long");
 
     uint8_t buf[16 * 3];
     ESP_RETURN_ON_ERROR(i2c_master_receive(s_dev, buf, nwords * 3, 200), TAG, "rx");
@@ -110,7 +110,7 @@ static esp_err_t cmd_read(uint16_t *out, int nwords)
     for (int i = 0; i < nwords; i++) {
         const uint8_t *w = &buf[i * 3];
         if (crc8(w, 2) != w[2]) {
-            ESP_LOGW(TAG, "CRC malo en la palabra %d", i);
+            ESP_LOGW(TAG, "bad CRC in word %d", i);
             return ESP_ERR_INVALID_CRC;
         }
         out[i] = (uint16_t)((w[0] << 8) | w[1]);
@@ -172,7 +172,7 @@ static void bus_recover(int sda, int scl)
     gpio_set_level(sda, 1);
     esp_rom_delay_us(5);
 
-    if (pulses) ESP_LOGW(TAG, "bus I2C bloqueado, liberado con %d pulsos", pulses);
+    if (pulses) ESP_LOGW(TAG, "I2C bus stuck, released with %d clock pulses", pulses);
     gpio_reset_pin(sda);
     gpio_reset_pin(scl);
 }
@@ -215,7 +215,7 @@ static bool looks_like_sen66(void)
 {
     char name[32] = {0};
     if (sen66_product_name_unlocked(name, sizeof(name)) != ESP_OK) return false;
-    ESP_LOGI(TAG, "producto: '%s'", name);
+    ESP_LOGI(TAG, "product: '%s'", name);
     return strncmp(name, "SEN6", 4) == 0;
 }
 
@@ -246,19 +246,19 @@ esp_err_t sen66_init(bool autodetect)
             s_scl = scl;
             s_present = true;
             if (i > 0) {
-                ESP_LOGW(TAG, "encontrado en SDA=%d SCL=%d (no en los de board.h);"
-                              " fija esos valores en BOARD_SEN66_PIN_*", sda, scl);
+                ESP_LOGW(TAG, "found at SDA=%d SCL=%d (not the board.h pins);"
+                              " set BOARD_SEN66_PIN_* to these values", sda, scl);
             } else {
-                ESP_LOGI(TAG, "listo en SDA=%d SCL=%d", sda, scl);
+                ESP_LOGI(TAG, "ready at SDA=%d SCL=%d", sda, scl);
             }
             return ESP_OK;
         }
         bus_close();
-        if (i == 0 && autodetect) ESP_LOGW(TAG, "no responde en SDA=%d SCL=%d, barriendo header", sda, scl);
+        if (i == 0 && autodetect) ESP_LOGW(TAG, "not responding at SDA=%d SCL=%d, scanning header", sda, scl);
     }
 
     s_present = false;
-    ESP_LOGE(TAG, "sensor no encontrado (revisa cableado I2C, 3V3 y GND)");
+    ESP_LOGE(TAG, "sensor not found (check I2C wiring, 3V3 and GND)");
     return ESP_ERR_NOT_FOUND;
 }
 
@@ -373,7 +373,7 @@ static esp_err_t sen66_serial_unlocked(char *buf, size_t len)
 static esp_err_t sen66_product_name_unlocked(char *buf, size_t len)
 {
     uint16_t w[16];
-    ESP_RETURN_ON_ERROR(cmd_query(CMD_PRODUCT_NAME, 20, w, 16), TAG, "nombre");
+    ESP_RETURN_ON_ERROR(cmd_query(CMD_PRODUCT_NAME, 20, w, 16), TAG, "name");
     words_to_ascii(w, 16, buf, len);
     return ESP_OK;
 }

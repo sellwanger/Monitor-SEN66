@@ -25,12 +25,12 @@ esp_err_t rtc_pcf85063_init(i2c_master_bus_handle_t bus)
 
 esp_err_t rtc_pcf85063_get(struct tm *out)
 {
-    ESP_RETURN_ON_FALSE(s_dev, ESP_ERR_INVALID_STATE, TAG, "sin init");
+    ESP_RETURN_ON_FALSE(s_dev, ESP_ERR_INVALID_STATE, TAG, "not initialised");
 
     const uint8_t reg = PCF85063_REG_TIME;
     uint8_t b[7];
     ESP_RETURN_ON_ERROR(i2c_master_transmit_receive(s_dev, &reg, 1, b, sizeof(b), 100),
-                        TAG, "lectura");
+                        TAG, "read");
 
     *out = (struct tm){
         .tm_sec = bcd2dec(b[0] & 0x7f),
@@ -49,7 +49,7 @@ esp_err_t rtc_pcf85063_get(struct tm *out)
 
 esp_err_t rtc_pcf85063_set(const struct tm *t)
 {
-    ESP_RETURN_ON_FALSE(s_dev, ESP_ERR_INVALID_STATE, TAG, "sin init");
+    ESP_RETURN_ON_FALSE(s_dev, ESP_ERR_INVALID_STATE, TAG, "not initialised");
 
     const uint8_t buf[8] = {
         PCF85063_REG_TIME,

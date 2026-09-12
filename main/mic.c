@@ -142,12 +142,12 @@ esp_err_t mic_init(i2c_master_bus_handle_t bus)
     // Espressif tampoco lo lee. Preguntar por un registro inventado da un
     // NACK y parece que el chip no esta cuando si esta.
     if (i2c_master_probe(bus, ES7210_ADDR, 100) != ESP_OK) {
-        ESP_LOGW(TAG, "el ES7210 no contesta en 0x%02x", ES7210_ADDR);
+        ESP_LOGW(TAG, "ES7210 not responding at 0x%02x", ES7210_ADDR);
         s_status = "el ES7210 no contesta en 0x40";
         return ESP_ERR_NOT_FOUND;
     }
     ESP_RETURN_ON_ERROR(i2c_master_bus_add_device(bus, &cfg, &s_dev), TAG, "add dev");
-    ESP_LOGI(TAG, "ES7210 presente en 0x%02x", ES7210_ADDR);
+    ESP_LOGI(TAG, "ES7210 present at 0x%02x", ES7210_ADDR);
 
     // El canal PRIMERO y el codec despues. Habilitar el canal es lo que pone
     // en marcha MCLK, BCLK y WS, y el ES7210 engancha sus divisores y la DLL
@@ -163,7 +163,7 @@ esp_err_t mic_init(i2c_master_bus_handle_t bus)
 
     s_ready = true;
     s_status = "ok";
-    ESP_LOGI(TAG, "microfono listo (%d Hz, ventana %d ms)", SAMPLE_RATE, VENTANA_MS);
+    ESP_LOGI(TAG, "microphone ready (%d Hz, %d ms window)", SAMPLE_RATE, VENTANA_MS);
     return ESP_OK;
 }
 

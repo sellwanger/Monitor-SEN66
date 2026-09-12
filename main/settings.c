@@ -69,7 +69,7 @@ esp_err_t settings_load(void)
 
     nvs_handle_t h;
     if (nvs_open(NVS_NS, NVS_READONLY, &h) != ESP_OK) {
-        ESP_LOGI(TAG, "sin configuracion guardada, usando valores por defecto");
+        ESP_LOGI(TAG, "no saved configuration, using defaults");
         return ESP_OK;
     }
 
@@ -83,8 +83,8 @@ esp_err_t settings_load(void)
     if (nvs_get_u8(h, "ver", &ver) == ESP_OK && ver == CFG_VERSION &&
         nvs_get_blob(h, NVS_KEY, &tmp, &len) == ESP_OK && len <= sizeof(tmp)) {
         if (len < sizeof(tmp)) {
-            ESP_LOGI(TAG, "configuracion de una version anterior (%u de %u bytes):"
-                          " los campos nuevos quedan por defecto",
+            ESP_LOGI(TAG, "configuration from an older version (%u of %u bytes):"
+                          " new fields keep defaults",
                      (unsigned)len, (unsigned)sizeof(tmp));
             // La pagina de ruido es nueva. Quien tenia TODAS las paginas
             // activas (mascara 31, las cinco de entonces) las quiere todas,
@@ -92,10 +92,10 @@ esp_err_t settings_load(void)
             if (tmp.pages_mask == 0x1F) tmp.pages_mask = (1 << SETTINGS_PAGES) - 1;
         }
         s_cfg = tmp;
-        ESP_LOGI(TAG, "configuracion cargada (wifi='%s', mqtt='%s')",
+        ESP_LOGI(TAG, "configuration loaded (wifi='%s', mqtt='%s')",
                  s_cfg.wifi_ssid, s_cfg.mqtt_uri);
     } else {
-        ESP_LOGW(TAG, "configuracion incompatible (v%u), volviendo a los valores por defecto", ver);
+        ESP_LOGW(TAG, "incompatible configuration (v%u), reverting to defaults", ver);
     }
     nvs_close(h);
     return ESP_OK;
@@ -109,7 +109,7 @@ esp_err_t settings_save(void)
     if (err == ESP_OK) err = nvs_set_u8(h, "ver", CFG_VERSION);
     if (err == ESP_OK) err = nvs_commit(h);
     nvs_close(h);
-    if (err == ESP_OK) ESP_LOGI(TAG, "configuracion guardada");
+    if (err == ESP_OK) ESP_LOGI(TAG, "configuration saved");
     return err;
 }
 

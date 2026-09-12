@@ -55,11 +55,11 @@ esp_err_t pmu_init(i2c_master_bus_handle_t bus)
 
     uint8_t id = 0;
     if (rd(REG_IC_TYPE, &id) != ESP_OK) {
-        ESP_LOGW(TAG, "no responde en 0x%02x", AXP_ADDR);
+        ESP_LOGW(TAG, "not responding at 0x%02x", AXP_ADDR);
         s_dev = NULL;
         return ESP_ERR_NOT_FOUND;
     }
-    ESP_LOGI(TAG, "PMU presente (IC type 0x%02x)", id);
+    ESP_LOGI(TAG, "PMU present (IC type 0x%02x)", id);
 
     // Solo encendemos lo necesario para medir. NO tocamos raíles: BLDO1
     // alimenta el AMOLED y apagarlo deja la pantalla negra sin error.
@@ -114,7 +114,7 @@ esp_err_t pmu_set_charge_current(uint16_t ma)
     uint8_t v = 0;
     ESP_RETURN_ON_ERROR(rd(REG_ICC_CHG_SET, &v), TAG, "rd icc");
     ESP_RETURN_ON_ERROR(wr(REG_ICC_CHG_SET, (uint8_t)((v & 0xE0) | code)), TAG, "wr icc");
-    ESP_LOGI(TAG, "corriente de carga a %u mA", elegido);
+    ESP_LOGI(TAG, "charge current set to %u mA", elegido);
     return ESP_OK;
 }
 

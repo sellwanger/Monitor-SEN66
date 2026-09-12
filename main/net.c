@@ -46,7 +46,7 @@ static void retry_connect_cb(void *arg)
 static void on_time_sync(struct timeval *tv)
 {
     (void)tv;
-    ESP_LOGI(TAG, "hora sincronizada por SNTP");
+    ESP_LOGI(TAG, "time synchronised via SNTP");
     if (s_time_cb) s_time_cb();
 }
 
@@ -70,7 +70,7 @@ static void wifi_event(void *arg, esp_event_base_t base, int32_t id, void *data)
         s_ip[0] = '\0';
         s_state = s_portal_up ? NET_PORTAL : NET_CONNECTING;
         if (++s_fails == FAILS_BEFORE_PORTAL && !s_portal_up) {
-            ESP_LOGW(TAG, "%d fallos seguidos: abro el portal de configuracion", s_fails);
+            ESP_LOGW(TAG, "%d consecutive failures: opening setup portal", s_fails);
             start_portal();
         }
         // Espera creciente hasta 10 s para no machacar el router ni la radio.
@@ -85,7 +85,7 @@ static void wifi_event(void *arg, esp_event_base_t base, int32_t id, void *data)
         snprintf(s_ip, sizeof(s_ip), IPSTR, IP2STR(&e->ip_info.ip));
         s_fails = 0;
         s_state = NET_CONNECTED;
-        ESP_LOGI(TAG, "conectado, IP %s", s_ip);
+        ESP_LOGI(TAG, "connected, IP %s", s_ip);
         // Cerrar el portal de rescate en cuanto vuelve la red. Antes se quedaba
         // abierto hasta el siguiente reinicio: un AP (ahora WPA2, antes ABIERTO)
         // conviviendo con la conexion buena, sin motivo.
@@ -123,7 +123,7 @@ esp_err_t net_init(void)
     // RNG hardware). No se deriva de la MAC, que va en claro por el aire y la
     // haria adivinable. Se muestra en la pantalla de configuracion.
     snprintf(s_ap_pass, sizeof(s_ap_pass), "%08" PRIu32, esp_random() % 100000000u);
-    ESP_LOGI(TAG, "id de dispositivo: %s", s_dev_id);
+    ESP_LOGI(TAG, "device id: %s", s_dev_id);
     return ESP_OK;
 }
 
@@ -160,12 +160,12 @@ static void start_portal(void)
     // en AP, asi que la radio no llegaba a arrancar y no habia portal.
     const esp_err_t err = esp_wifi_start();
     if (err != ESP_OK && err != ESP_ERR_WIFI_CONN) {
-        ESP_LOGW(TAG, "esp_wifi_start en el portal: %s", esp_err_to_name(err));
+        ESP_LOGW(TAG, "esp_wifi_start in portal: %s", esp_err_to_name(err));
     }
 
     s_portal_up = true;
     if (s_state != NET_CONNECTED) s_state = NET_PORTAL;
-    ESP_LOGW(TAG, "portal de configuracion abierto: red '%s' -> http://192.168.4.1",
+    ESP_LOGW(TAG, "setup portal open: network '%s' -> http://192.168.4.1",
              s_ap_ssid);
 }
 
@@ -177,10 +177,10 @@ static void stop_portal(void)
     s_portal_up = false;
     esp_err_t err = esp_wifi_set_mode(WIFI_MODE_STA);
     if (err != ESP_OK) {
-        ESP_LOGW(TAG, "no pude cerrar el portal: %s", esp_err_to_name(err));
+        ESP_LOGW(TAG, "could not close portal: %s", esp_err_to_name(err));
         return;
     }
-    ESP_LOGI(TAG, "red recuperada: portal de configuracion cerrado");
+    ESP_LOGI(TAG, "network back: setup portal closed");
 }
 
 esp_err_t net_start(void)
@@ -188,7 +188,7 @@ esp_err_t net_start(void)
     const settings_t *cfg = settings_get();
 
     if (cfg->wifi_ssid[0] == '\0') {
-        ESP_LOGW(TAG, "sin red configurada");
+        ESP_LOGW(TAG, "no network configured");
         start_portal(); // pone el modo y arranca la radio
         return ESP_OK;
     }
@@ -198,13 +198,13 @@ esp_err_t net_start(void)
     strlcpy((char *)sta.sta.password, cfg->wifi_pass, sizeof(sta.sta.password));
     sta.sta.threshold.authmode = cfg->wifi_pass[0] ? WIFI_AUTH_WPA2_PSK : WIFI_AUTH_OPEN;
 
-    ESP_RETURN_ON_ERROR(esp_wifi_set_mode(WIFI_MODE_STA), TAG, "modo sta");
-    ESP_RETURN_ON_ERROR(esp_wifi_set_config(WIFI_IF_STA, &sta), TAG, "config sta");
+    ESP_RETURN_ON_ERROR(esp_wifi_set_mode(WIFI_MODE_STA), TAG, "sta mode");
+    ESP_RETURN_ON_ERROR(esp_wifi_set_config(WIFI_IF_STA, &sta), TAG, "sta config");
     // Sin ahorro de energia: con DTIM el ping y MQTT se vuelven erraticos y
     // este aparato vive enchufado.
     esp_wifi_set_ps(WIFI_PS_NONE);
     ESP_RETURN_ON_ERROR(esp_wifi_start(), TAG, "start");
-    ESP_LOGI(TAG, "conectando a '%s'", cfg->wifi_ssid);
+    ESP_LOGI(TAG, "connecting to '%s'", cfg->wifi_ssid);
     return ESP_OK;
 }
 
@@ -224,7 +224,7 @@ int net_rssi(void)
 void net_set_power_save(bool enabled)
 {
     esp_wifi_set_ps(enabled ? WIFI_PS_MIN_MODEM : WIFI_PS_NONE);
-    ESP_LOGI(TAG, "ahorro de radio %s", enabled ? "activado" : "desactivado");
+    ESP_LOGI(TAG, "wifi power save %s", enabled ? "on" : "off");
 }
 
 void net_set_time_sync_cb(void (*cb)(void)) { s_time_cb = cb; }

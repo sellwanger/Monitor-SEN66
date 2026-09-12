@@ -606,7 +606,7 @@ static esp_err_t h_settings_post(httpd_req_t *req)
     // sensor se pasaria el dia parando y arrancando (1,4 s cada parada).
     if (c->batt_period_s < c->batt_on_s + 60) {
         c->batt_period_s = c->batt_on_s + 60;
-        ESP_LOGW(TAG, "ciclo de ahorro demasiado corto: subido a %u s", c->batt_period_s);
+        ESP_LOGW(TAG, "power-saver cycle too short: raised to %u s", c->batt_period_s);
     }
 
     // La histeresis solo existe si el umbral de callar queda POR DEBAJO del de
@@ -614,7 +614,7 @@ static esp_err_t h_settings_post(httpd_req_t *req)
     // la misma muestra: mejor corregirlo aqui que dejar el aparato pitando.
     if (c->alarm_clear_ppm >= c->alarm_co2_ppm) {
         c->alarm_clear_ppm = (c->alarm_co2_ppm > 500) ? c->alarm_co2_ppm - 200 : 400;
-        ESP_LOGW(TAG, "umbral de rearme por encima del de aviso: bajado a %u ppm",
+        ESP_LOGW(TAG, "clear threshold above alert threshold: lowered to %u ppm",
                  c->alarm_clear_ppm);
     }
 
@@ -808,7 +808,7 @@ static esp_err_t h_ota(httpd_req_t *req)
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "keine OTA-Partition");
         return ESP_FAIL;
     }
-    ESP_LOGI(TAG, "OTA a '%s', %d bytes", part->label, req->content_len);
+    ESP_LOGI(TAG, "OTA to '%s', %d bytes", part->label, req->content_len);
 
     esp_ota_handle_t ota;
     if (esp_ota_begin(part, req->content_len, &ota) != ESP_OK) {
@@ -872,12 +872,12 @@ esp_err_t webcfg_start(webcfg_sample_fn get_sample)
     };
     for (size_t i = 0; i < sizeof(routes) / sizeof(routes[0]); i++) {
         ESP_RETURN_ON_ERROR(httpd_register_uri_handler(s_server, &routes[i]),
-                            TAG, "ruta %s", routes[i].uri);
+                            TAG, "route %s", routes[i].uri);
     }
     // Sin IP todavia: arrancamos antes de que el DHCP conteste. Decir una
     // direccion concreta aqui seria mentir (lo hacia: cantaba 192.168.4.1
     // incluso conectado a la red de casa). La IP real la canta net.c en
     // cuanto llega el GOT_IP; en el portal es siempre 192.168.4.1.
-    ESP_LOGI(TAG, "servidor web escuchando en el puerto %d", cfg.server_port);
+    ESP_LOGI(TAG, "web server listening on port %d", cfg.server_port);
     return ESP_OK;
 }

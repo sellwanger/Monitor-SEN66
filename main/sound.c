@@ -186,7 +186,7 @@ esp_err_t sound_init(i2c_master_bus_handle_t bus)
 
     uint8_t chip = 0;
     if (reg_read(0xFD, &chip) != ESP_OK) {
-        ESP_LOGW(TAG, "el codec no responde en 0x%02x", ES8311_ADDR);
+        ESP_LOGW(TAG, "codec not responding at 0x%02x", ES8311_ADDR);
         return ESP_ERR_NOT_FOUND;
     }
     ESP_RETURN_ON_ERROR(codec_init(), TAG, "codec");
@@ -195,12 +195,12 @@ esp_err_t sound_init(i2c_master_bus_handle_t bus)
     ESP_RETURN_ON_ERROR(i2s_channel_enable(s_tx), TAG, "i2s tx enable");
 
     s_queue = xQueueCreate(4, sizeof(sound_effect_t));
-    ESP_RETURN_ON_FALSE(s_queue, ESP_ERR_NO_MEM, TAG, "cola");
+    ESP_RETURN_ON_FALSE(s_queue, ESP_ERR_NO_MEM, TAG, "queue");
     // En el nucleo 0 con la red: el 1 lleva la pantalla y el sensor.
     xTaskCreatePinnedToCore(sound_task, "sound", 3072, NULL, 4, NULL, 0);
 
     s_ready = true;
-    ESP_LOGI(TAG, "audio listo (ES8311, %d Hz)", SAMPLE_RATE);
+    ESP_LOGI(TAG, "audio ready (ES8311, %d Hz)", SAMPLE_RATE);
     return ESP_OK;
 }
 
