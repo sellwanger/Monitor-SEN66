@@ -34,8 +34,10 @@ static webcfg_sample_fn s_get_sample;
 static webcfg_recal_fn s_recal_request;
 static webcfg_recal_status_fn s_recal_status;
 static webcfg_fan_fn s_fan;
+static webcfg_fanclean_fn s_fanclean;
 
 void webcfg_set_fan(webcfg_fan_fn fn) { s_fan = fn; }
+void webcfg_set_fan_clean(webcfg_fanclean_fn fn) { s_fanclean = fn; }
 
 void webcfg_set_co2_recal(webcfg_recal_fn request, webcfg_recal_status_fn status)
 {
@@ -301,6 +303,7 @@ static const char k_page[] =
 "<button class=alt onclick=\"post('/api/beep')\">Ton testen</button>\n"
 "<button class=alt onclick=\"post('/api/reboot')\">Neu starten</button>\n"
 "</div>\n"
+"<div class=hint>Lüfter reinigen: 10 s Volllast gegen Staub im Messkanal, dabei ca. 12 s keine Messwerte. Läuft automatisch einmal pro Woche.</div>\n"
 "<label style='margin-top:16px'>CO2 gegen eine Referenz neu kalibrieren</label>\n"
 "<div class=grid><div><input id=frc type=number value=420 min=400 max=2000></div>\n"
 "<div><button class=alt style='margin-top:0;width:100%' onclick=recal()>Kalibrieren</button></div></div>\n"
@@ -720,11 +723,15 @@ static esp_err_t h_beep(httpd_req_t *req)
 static esp_err_t h_fanclean(httpd_req_t *req)
 {
     if (guard_api(req) != ESP_OK) return ESP_FAIL;
-    if (sen66_fan_clean() != ESP_OK) {
-        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Sensor antwortet nicht");
+    // Antes se mandaba el comando directo al sensor EN MEDICION, donde el
+    // datasheet dice que no se ejecuta: el boton "no hacia nada". Ahora se
+    // encola y sensor_task para, limpia y rearranca.
+    if (!s_fanclean || !s_fanclean()) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR,
+                            "Nicht jetzt: Sensor nicht bereit oder Reinigung/Kalibrierung aktiv");
         return ESP_FAIL;
     }
-    return httpd_resp_sendstr(req, "Reinigung laeuft (10 s)");
+    return httpd_resp_sendstr(req, "Reinigung gestartet (ca. 12 s ohne Messwerte)");
 }
 
 // Recalibracion forzada de CO2. Aqui solo se valida y se encola: el comando

@@ -97,6 +97,9 @@ static int64_t s_alive_since_us;
 // Sensor parado A PROPOSITO por el ciclo de ahorro en bateria (ver mas abajo).
 // Va aqui arriba porque recal_request y status_message lo consultan.
 static volatile bool s_saver_idle;
+// Definida mas abajo (junto al resto de operaciones que exigen el sensor
+// parado); la usa fan_clean_check, que va antes.
+static esp_err_t fan_clean_run(void);
 // Lo escribe la tarea del sensor y lo lee el temporizador de la UI. LVGL no
 // es seguro entre tareas: tocar sus objetos desde la tarea del sensor era
 // pedir problemas, y ademas cambiar el brillo desde alli compite con el
@@ -221,7 +224,7 @@ static void fan_clean_check(void)
     if ((uint32_t)ahora - cfg->last_fan_clean < FAN_CLEAN_PERIOD_S) return;
 
     ESP_LOGI(TAG, "weekly fan cleaning");
-    if (sen66_fan_clean() == ESP_OK) {
+    if (fan_clean_run() == ESP_OK) {
         cfg->last_fan_clean = (uint32_t)ahora;
         settings_save();
     }
@@ -261,10 +264,12 @@ static void recal_set_msg(const char *m)
     xSemaphoreGive(s_lock);
 }
 
+static volatile bool s_fanclean_req;   // limpieza manual pendiente
+
 static bool recal_request(uint16_t ppm)
 {
     if (ppm < 400 || ppm > 2000) return false;
-    if (!s_sensor_ok || s_recal_ppm != 0 || s_saver_idle) return false;
+    if (!s_sensor_ok || s_recal_ppm != 0 || s_saver_idle || s_fanclean_req) return false;
     recal_set_msg("Kalibriere...");
     s_recal_ppm = ppm;
     return true;
@@ -333,6 +338,49 @@ static void recal_run(uint16_t ppm)
         s_sensor_ok = false;  // que lo recoja la deteccion de sensor muerto
     }
     recal_set_msg(msg);
+}
+
+// ------------------------------------------------ limpieza del ventilador
+// Solo desde sensor_task. "Start Fan Cleaning" solo esta disponible en Idle:
+// mandado en medicion el sensor lo acepta y lo ignora, que es lo que pasaba
+// antes (el boton no hacia nada y la limpieza semanal se apuntaba como hecha
+// sin que el ventilador girase). Ahora: parar, limpiar, esperar los 10 s que
+// pide el datasheet, rearrancar. Si el ahorro tiene el sensor en pausa, ya
+// esta en Idle y no hay que parar ni rearrancar.
+static esp_err_t fan_clean_run(void)
+{
+    const bool was_measuring = !s_saver_idle;
+    uint8_t voc[SEN66_VOC_STATE_LEN];
+    const bool have_voc = (sen66_get_voc_state(voc) == ESP_OK);
+
+    if (was_measuring) {
+        const esp_err_t e = sen66_stop();
+        if (e != ESP_OK) {
+            ESP_LOGW(TAG, "fan cleaning: sensor would not stop (%s)", esp_err_to_name(e));
+            return e;
+        }
+    }
+    const esp_err_t err = sen66_fan_clean();
+    if (err != ESP_OK) ESP_LOGW(TAG, "fan cleaning command failed: %s", esp_err_to_name(err));
+    // 10 s a maxima velocidad; el datasheet pide esperar >= 10 s antes de medir.
+    vTaskDelay(pdMS_TO_TICKS(11000));
+
+    if (was_measuring) {
+        if (have_voc) sen66_set_voc_state(voc);
+        s_alive_since_us = esp_timer_get_time();
+        if (sen66_start() != ESP_OK) {
+            ESP_LOGE(TAG, "sensor did not restart after fan cleaning");
+            s_sensor_ok = false;  // que lo recoja sensor_recover
+        }
+    }
+    return err;
+}
+
+static bool fanclean_request(void)
+{
+    if (!s_sensor_ok || s_recal_ppm != 0 || s_fanclean_req) return false;
+    s_fanclean_req = true;
+    return true;
 }
 
 // Reinicia el bus y el sensor. Un tropiezo del I2C dejaba el aparato mudo
@@ -461,6 +509,18 @@ static void sensor_task(void *arg)
         if (s_recal_ppm != 0) {
             recal_run(s_recal_ppm);
             s_recal_ppm = 0;
+        }
+
+        if (s_fanclean_req) {
+            ESP_LOGI(TAG, "manual fan cleaning");
+            const esp_err_t e = fan_clean_run();
+            s_fanclean_req = false;
+            const time_t t = time(NULL);
+            if (e == ESP_OK && t > 1700000000) {
+                // Reinicia la cuenta semanal: acabamos de limpiar.
+                settings_get()->last_fan_clean = (uint32_t)t;
+                settings_save();
+            }
         }
 
         if (s_fan_request != 0) {
@@ -674,6 +734,7 @@ void app_main(void)
     ESP_ERROR_CHECK(webcfg_start(get_sample_for_web));
     webcfg_set_co2_recal(recal_request, recal_status);
     webcfg_set_fan(fan_request);
+    webcfg_set_fan_clean(fanclean_request);
     ha_mqtt_start();
 
     if (pmu_available()) {
