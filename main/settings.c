@@ -46,6 +46,7 @@ void settings_defaults(settings_t *s)
     s->batt_saver = false;
     s->batt_on_s = 180;
     s->batt_period_s = 600;
+    s->wake_on_level = 0;   // desactivado: la pantalla solo la enciende un dedo
     // Medido (09-09-2026), no supuesto: dos anclajes separados 10 dB contra
     // una app de sonometro del movil dieron 112,4 y 112,2. Que las dos cifras
     // coincidan es lo que importa: el desvio es un desplazamiento constante,

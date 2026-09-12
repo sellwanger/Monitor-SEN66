@@ -74,6 +74,13 @@ typedef struct {
     bool batt_saver;
     uint16_t batt_on_s;      // ventana de medicion (s), minimo 60
     uint16_t batt_period_s;  // periodo del ciclo (s), > batt_on_s
+
+    // --- Despertar la pantalla cuando el aire empeora ---
+    // 0 = desactivado; si no, nivel MINIMO que enciende la pantalla, como
+    // air_level_t (3 = malo, 4 = muy malo). Solo dispara al ENTRAR en ese
+    // nivel, no mientras se mantiene, y no se rearma hasta que el aire
+    // mejora por debajo del umbral.
+    uint8_t wake_on_level;
 } settings_t;
 
 // Carga de NVS; si no hay nada guardado deja los valores por defecto.

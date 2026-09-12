@@ -637,6 +637,49 @@ static void status_message(char *buf, size_t len)
 // Un solo temporizador a 1 Hz para todo lo periodico de la UI: refrescar
 // valores, rotar pagina y atenuar. Lo llama el port de LVGL, asi que ya
 // estamos dentro del contexto correcto.
+// --------------------------------------- despertar la pantalla por el aire
+// Enciende la pantalla al ENTRAR en un nivel malo, no mientras se mantiene:
+// si no, cada tick volveria a despertarla y no se apagaria nunca. Tras el
+// aviso, el temporizador de inactividad de siempre la vuelve a atenuar, asi
+// que esto no necesita apagarla a mano.
+//
+// Rearme con dos condiciones, y hacen falta las dos: que el aire baje del
+// umbral (no basta con que mejore un poco) y que hayan pasado
+// WAKE_REARM_MIN_S desde el ultimo aviso. La segunda evita que un valor
+// oscilando justo en la frontera encienda la pantalla cada dos por tres.
+//
+// Solo desde el contexto de LVGL (lo llama ui_timer_cb): ui_wake() toca
+// objetos de LVGL y no es seguro entre tareas.
+#define WAKE_REARM_MIN_S 600
+
+static void wake_on_air_check(const air_sample_t *s)
+{
+    const uint8_t umbral = settings_get()->wake_on_level;
+    if (umbral == 0 || umbral >= AIR_LVL_COUNT) return;
+    if (!s->valid) return;
+
+    static bool armado = true;
+    static int64_t ultimo_us;
+
+    const air_level_t nivel = air_overall(s);
+    if (nivel >= AIR_LVL_COUNT) return;   // sin dato fiable todavia
+
+    const int64_t ahora = esp_timer_get_time();
+
+    if (nivel < (air_level_t)umbral) {
+        // El aire ha vuelto por debajo del umbral: listo para el proximo.
+        armado = true;
+        return;
+    }
+    if (!armado) return;
+    if (ultimo_us && (ahora - ultimo_us) < (int64_t)WAKE_REARM_MIN_S * 1000000) return;
+
+    armado = false;
+    ultimo_us = ahora;
+    ESP_LOGW(TAG, "air quality %s: waking the display", air_level_text(nivel));
+    ui_wake();
+}
+
 static void ui_timer_cb(lv_timer_t *t)
 {
     (void)t;
@@ -668,6 +711,7 @@ static void ui_timer_cb(lv_timer_t *t)
     ui_set_status(time_str, net_state() == NET_CONNECTED, ha_mqtt_connected(), msg,
                   bat_pct, charging);
     ui_set_on_battery(s_on_battery);
+    wake_on_air_check(&snap);   // antes del tick: si despierta, no lo atenua
     ui_tick_1s();
 }
 

@@ -259,6 +259,12 @@ static const char k_page[] =
 "<div class=pg><input type=checkbox id=pg3><span>Gase (VOC und NOx)</span></div>\n"
 "<div class=pg><input type=checkbox id=pg4><span>Klima</span></div>\n"
 "<div class=pg><input type=checkbox id=pg5><span>Lärm</span></div>\n"
+"<label>Bildschirm bei schlechter Luft einschalten</label><select name=wake_on_level>\n"
+"<option value=0>Nein</option>\n"
+"<option value=3>Ab \"Schlecht\"</option>\n"
+"<option value=4>Nur bei \"Sehr schlecht\"</option>\n"
+"</select>\n"
+"<div class=hint>Schaltet den gedimmten Bildschirm ein, wenn die Gesamtbewertung in die gewählte Stufe wechselt — danach dimmt er nach der eingestellten Zeit von selbst wieder ab. Löst nur beim Übergang aus, frühestens alle 10 Minuten erneut, und erst wieder, wenn die Luft zwischendurch besser war. Setzt voraus, dass \"Dimmen nach\" nicht auf Nie steht.</div>\n"
 "\n"
 "<h2 style='margin-top:22px'>Sensor</h2>\n"
 "<div class=grid>\n"
@@ -503,13 +509,15 @@ static esp_err_t h_settings_get(httpd_req_t *req)
         "\"temp_offset\":%.1f,\"altitude_m\":%u,\"co2_asc\":%d,"
         "\"alarm_enabled\":%d,\"alarm_co2_ppm\":%u,\"alarm_clear_ppm\":%u,"
         "\"alarm_volume\":%u,\"noise_offset_db\":%d,"
-        "\"batt_saver\":%d,\"batt_on_s\":%u,\"batt_period_s\":%u}",
+        "\"batt_saver\":%d,\"batt_on_s\":%u,\"batt_period_s\":%u,"
+        "\"wake_on_level\":%u}",
         c->brightness, c->night_brightness, c->screen_timeout_s,
         c->page_dwell_s, c->chart_span_min, c->pages_mask,
         c->temp_offset_dc / 10.0f, c->altitude_m, c->co2_asc ? 1 : 0,
         c->alarm_enabled ? 1 : 0, c->alarm_co2_ppm, c->alarm_clear_ppm,
         c->alarm_volume, c->noise_offset_db,
-        c->batt_saver ? 1 : 0, c->batt_on_s, c->batt_period_s);
+        c->batt_saver ? 1 : 0, c->batt_on_s, c->batt_period_s,
+        c->wake_on_level);
 
     httpd_resp_set_type(req, "application/json");
     return httpd_resp_send(req, json, n);
@@ -603,6 +611,9 @@ static esp_err_t h_settings_post(httpd_req_t *req)
     if (get_num(root, "batt_saver", &d))       c->batt_saver = (d != 0);
     if (get_num(root, "batt_on_s", &d))        c->batt_on_s = (uint16_t)(d < 60 ? 60 : (d > 3600 ? 3600 : d));
     if (get_num(root, "batt_period_s", &d))    c->batt_period_s = (uint16_t)(d < 120 ? 120 : (d > 7200 ? 7200 : d));
+    // 0 = desactivado; si no, un nivel de air_level_t. Fuera de rango se
+    // trata como desactivado en vez de rechazar el guardado entero.
+    if (get_num(root, "wake_on_level", &d))    c->wake_on_level = (uint8_t)(d < 0 || d >= AIR_LVL_COUNT ? 0 : d);
     cJSON_Delete(root);
 
     // El ciclo tiene que dejar una pausa real: si no, el ahorro no ahorra y el
@@ -682,13 +693,15 @@ static esp_err_t h_backup(httpd_req_t *req)
         "\"altitude_m\":%u,\"co2_asc\":%d,\"alarm_enabled\":%d,"
         "\"alarm_co2_ppm\":%u,\"alarm_clear_ppm\":%u,\"alarm_volume\":%u,"
         "\"noise_offset_db\":%d,"
-        "\"batt_saver\":%d,\"batt_on_s\":%u,\"batt_period_s\":%u",
+        "\"batt_saver\":%d,\"batt_on_s\":%u,\"batt_period_s\":%u,"
+        "\"wake_on_level\":%u",
         c->brightness, c->night_brightness, c->screen_timeout_s,
         c->chart_span_min, c->pages_mask, c->temp_offset_dc / 10.0,
         c->altitude_m, c->co2_asc, c->alarm_enabled,
         c->alarm_co2_ppm, c->alarm_clear_ppm, c->alarm_volume,
         c->noise_offset_db,
-        c->batt_saver ? 1 : 0, c->batt_on_s, c->batt_period_s);
+        c->batt_saver ? 1 : 0, c->batt_on_s, c->batt_period_s,
+        c->wake_on_level);
 
     if (con_secretos) {
         char wp[132], mp[132];
