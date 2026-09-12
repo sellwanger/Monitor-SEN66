@@ -37,7 +37,9 @@ void settings_defaults(settings_t *s)
     s->alarm_co2_ppm = 1200;
     s->alarm_clear_ppm = 1000; // histeresis: no pita cada vez que roza el umbral
     s->alarm_volume = 60;
-    strcpy(s->lang, "es");
+    // Idioma por defecto: aleman. (Antes \"es\"; los aparatos ya configurados
+    // conservan su idioma, esto solo afecta a un arranque de fabrica.)
+    strcpy(s->lang, "de");
     // Medido (09-09-2026), no supuesto: dos anclajes separados 10 dB contra
     // una app de sonometro del movil dieron 112,4 y 112,2. Que las dos cifras
     // coincidan es lo que importa: el desvio es un desplazamiento constante,

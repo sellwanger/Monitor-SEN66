@@ -20,6 +20,27 @@ CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP=y
 CONFIG_PARTITION_TABLE_CUSTOM=y
 CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
 
+# --- Seguridad OTA -------------------------------------------------------
+# Rollback: una imagen OTA que arranca pero no llega a confirmarse en app_main
+# (esp_ota_mark_app_valid_cancel_rollback) se revierte sola a la anterior en el
+# siguiente reinicio. Protege de subir por el panel un .bin que bootea y muere.
+CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y
+
+# Firma de imagenes de app SIN secure boot ni quemar eFuses: con esto, /api/ota
+# RECHAZA cualquier .bin que no vaya firmado con la clave privada del proyecto.
+# Es la unica defensa criptografica contra que alguien flashee firmware propio.
+#
+# Requiere generar la clave UNA vez y guardarla FUERA del repo:
+#   espsecure.py generate_signing_key --version 1 secure_boot_signing_key.pem
+#
+# Esta comentado porque sin la clave el build falla a proposito. Descomentalo
+# tras generarla (imprescindible antes de exponer el aparato a una red con
+# equipos poco fiables):
+#CONFIG_SECURE_SIGNED_APPS_NO_SECURE_BOOT=y
+#CONFIG_SECURE_SIGNED_ON_UPDATE_NO_SECURE_BOOT=y
+#CONFIG_SECURE_SIGNED_APPS_ECDSA_SCHEME=y
+#CONFIG_SECURE_BOOT_SIGNING_KEY="secure_boot_signing_key.pem"
+
 # Tick de 1ms: animaciones LVGL suaves
 CONFIG_FREERTOS_HZ=1000
 

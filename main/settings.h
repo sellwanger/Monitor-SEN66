@@ -54,6 +54,14 @@ typedef struct {
     // sensibilidad del micro y de la ganancia del codec, asi que se ajusta
     // contra una referencia; no se deduce.
     int16_t noise_offset_db;
+
+    // --- Autenticacion del panel web ---
+    // Basic Auth opcional. web_pass vacio = sin clave (el panel queda abierto
+    // en la red local, como antes). Con clave puesta, todas las rutas del
+    // panel la exigen SALVO durante el portal de aprovisionamiento (presencia
+    // fisica). La descarga de la copia CON contrasenas exige clave siempre.
+    char web_user[24];   // usuario; vacio = "admin"
+    char web_pass[33];   // clave; vacio = autenticacion desactivada
 } settings_t;
 
 // Carga de NVS; si no hay nada guardado deja los valores por defecto.

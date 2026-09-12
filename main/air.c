@@ -65,6 +65,11 @@ const char *air_metric_key(air_metric_t m)
     }
 }
 
+// Nombres de entidad para el descubrimiento de Home Assistant. En ingles y con
+// el mismo esquema que Project Aura (21cncstudio/project_aura), para que un
+// panel de HA pensado para aquel se pueda reutilizar con este: "VOC Index" y
+// "NOx Index" son los indices de Sensirion, sin unidad. Solo los usa ha_mqtt.c;
+// la pantalla y el panel web tienen sus propias tablas traducidas.
 const char *air_metric_label(air_metric_t m)
 {
     switch (m) {
@@ -72,12 +77,12 @@ const char *air_metric_label(air_metric_t m)
     case AIR_PM25: return "PM2.5";
     case AIR_PM4:  return "PM4.0";
     case AIR_PM10: return "PM10";
-    case AIR_HUM:  return "Humedad";
-    case AIR_TEMP: return "Temperatura";
-    case AIR_VOC:  return "VOC";
-    case AIR_NOX:  return "NOx";
+    case AIR_HUM:  return "Humidity";
+    case AIR_TEMP: return "Temperature";
+    case AIR_VOC:  return "VOC Index";
+    case AIR_NOX:  return "NOx Index";
     case AIR_CO2:  return "CO2";
-    case AIR_NOISE: return "Ruido";
+    case AIR_NOISE: return "Noise";
     default:       return "?";
     }
 }

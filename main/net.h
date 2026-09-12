@@ -25,7 +25,8 @@ net_state_t net_state(void);
 const char *net_ip(void);       // "192.168.1.42" o "" si no hay
 int net_rssi(void);             // dBm, 0 si no aplica
 const char *net_device_id(void);// "sen66-a1b2c3", estable por MAC
-const char *net_ap_ssid(void);  // SSID del portal
+const char *net_ap_ssid(void);
+const char *net_ap_pass(void); // clave WPA2 del portal (se muestra en pantalla)  // SSID del portal
 
 // Ahorro de energia de la radio. Con batería compensa: el modem duerme entre
 // balizas. Enchufado lo dejamos apagado, que con DTIM el ping y MQTT se

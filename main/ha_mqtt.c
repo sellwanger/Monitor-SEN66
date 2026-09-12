@@ -13,6 +13,25 @@
 
 static const char *TAG = "ha_mqtt";
 
+// Escapa una cadena para meterla entre comillas en JSON. Un " o \ en el nombre
+// del aparato reventaba el JSON de descubrimiento de HA.
+static void json_escape(char *dst, size_t dstlen, const char *src)
+{
+    size_t j = 0;
+    if (dstlen == 0) return;
+    for (size_t i = 0; src && src[i] && j + 2 < dstlen; i++) {
+        unsigned char c = (unsigned char)src[i];
+        char esc = 0;
+        if (c == '"' || c == '\\') esc = (char)c;
+        else if (c == '\n') esc = 'n';
+        else if (c == '\r') esc = 'r';
+        else if (c == '\t') esc = 't';
+        if (esc) { dst[j++] = '\\'; dst[j++] = esc; }
+        else if (c >= 0x20) dst[j++] = (char)c;
+    }
+    dst[j] = '\0';
+}
+
 static esp_mqtt_client_handle_t s_client;
 static bool s_connected;
 static bool s_available = true;
@@ -50,10 +69,12 @@ static const char *icon(air_metric_t m)
 static int append_device(char *buf, size_t len)
 {
     const settings_t *cfg = settings_get();
+    char name[80];
+    json_escape(name, sizeof(name), cfg->device_name);
     return snprintf(buf, len,
         "\"dev\":{\"ids\":[\"%s\"],\"name\":\"%s\","
         "\"mdl\":\"SEN66 + ESP32-S3 AMOLED 1.75\",\"mf\":\"DIY\",\"sw\":\"%s\"}",
-        net_device_id(), cfg->device_name, APP_VERSION);
+        net_device_id(), name, APP_VERSION);
 }
 
 static void publish_discovery_one(air_metric_t m)
@@ -101,7 +122,7 @@ static void publish_discovery_extras(void)
     snprintf(topic, sizeof(topic), "%s/sensor/%s/level/config",
              cfg->mqtt_prefix, net_device_id());
     n = snprintf(payload, sizeof(payload),
-        "{\"name\":\"Calidad del aire\",\"uniq_id\":\"%s_level\","
+        "{\"name\":\"Air Status\",\"uniq_id\":\"%s_level\","
         "\"stat_t\":\"%s\",\"avty_t\":\"%s\",\"val_tpl\":\"{{ value_json.level }}\","
         "\"ic\":\"mdi:weather-windy\",",
         net_device_id(), s_state_topic, s_avty_topic);

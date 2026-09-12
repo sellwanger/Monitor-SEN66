@@ -1,12 +1,14 @@
 #include "net.h"
 #include "settings.h"
 
+#include <inttypes.h>
 #include <stdio.h>
 #include <string.h>
 
 #include "esp_check.h"
 #include "esp_log.h"
 #include "esp_mac.h"
+#include "esp_random.h"
 #include "esp_netif.h"
 #include "esp_netif_sntp.h"
 #include "esp_timer.h"
@@ -24,6 +26,7 @@ static net_state_t s_state = NET_IDLE;
 static char s_ip[16] = "";
 static char s_dev_id[24] = "sen66";
 static char s_ap_ssid[24] = "SEN66-setup";
+static char s_ap_pass[16] = "";
 static int s_fails;
 static bool s_portal_up;
 static void (*s_time_cb)(void);
@@ -32,6 +35,7 @@ static esp_netif_t *s_ap_netif;
 static esp_timer_handle_t s_retry_timer;
 
 static void start_portal(void);
+static void stop_portal(void);
 
 static void retry_connect_cb(void *arg)
 {
@@ -82,6 +86,10 @@ static void wifi_event(void *arg, esp_event_base_t base, int32_t id, void *data)
         s_fails = 0;
         s_state = NET_CONNECTED;
         ESP_LOGI(TAG, "conectado, IP %s", s_ip);
+        // Cerrar el portal de rescate en cuanto vuelve la red. Antes se quedaba
+        // abierto hasta el siguiente reinicio: un AP (ahora WPA2, antes ABIERTO)
+        // conviviendo con la conexion buena, sin motivo.
+        stop_portal();
         start_sntp();
     }
 }
@@ -111,6 +119,10 @@ esp_err_t net_init(void)
     esp_read_mac(mac, ESP_MAC_WIFI_STA);
     snprintf(s_dev_id, sizeof(s_dev_id), "sen66-%02x%02x%02x", mac[3], mac[4], mac[5]);
     snprintf(s_ap_ssid, sizeof(s_ap_ssid), "SEN66-%02X%02X%02X", mac[3], mac[4], mac[5]);
+    // Clave WPA2 del portal: 8 digitos aleatorios de verdad (esp_random es un
+    // RNG hardware). No se deriva de la MAC, que va en claro por el aire y la
+    // haria adivinable. Se muestra en la pantalla de configuracion.
+    snprintf(s_ap_pass, sizeof(s_ap_pass), "%08" PRIu32, esp_random() % 100000000u);
     ESP_LOGI(TAG, "id de dispositivo: %s", s_dev_id);
     return ESP_OK;
 }
@@ -128,7 +140,11 @@ static void start_portal(void)
     ap.ap.ssid_len = strlen(s_ap_ssid);
     ap.ap.channel = 1;
     ap.ap.max_connection = 3;
-    ap.ap.authmode = WIFI_AUTH_OPEN;
+    // WPA2, no abierto: en modo rescate (tras varios fallos) el aparato YA
+    // tiene guardada la red de casa, y un AP abierto dejaria a cualquier vecino
+    // en alcance entrar al panel y reconfigurarlo. La clave se ve en pantalla.
+    strlcpy((char *)ap.ap.password, s_ap_pass, sizeof(ap.ap.password));
+    ap.ap.authmode = WIFI_AUTH_WPA2_PSK;
 
     // Conservar la estacion si ya estaba levantada (portal de rescate tras
     // varios fallos); si no, solo AP.
@@ -151,6 +167,20 @@ static void start_portal(void)
     if (s_state != NET_CONNECTED) s_state = NET_PORTAL;
     ESP_LOGW(TAG, "portal de configuracion abierto: red '%s' -> http://192.168.4.1",
              s_ap_ssid);
+}
+
+// Cierra el AP de rescate y vuelve a modo solo estacion. Es un no-op si el
+// portal no estaba levantado.
+static void stop_portal(void)
+{
+    if (!s_portal_up) return;
+    s_portal_up = false;
+    esp_err_t err = esp_wifi_set_mode(WIFI_MODE_STA);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "no pude cerrar el portal: %s", esp_err_to_name(err));
+        return;
+    }
+    ESP_LOGI(TAG, "red recuperada: portal de configuracion cerrado");
 }
 
 esp_err_t net_start(void)
@@ -182,6 +212,7 @@ net_state_t net_state(void) { return s_state; }
 const char *net_ip(void) { return s_ip; }
 const char *net_device_id(void) { return s_dev_id; }
 const char *net_ap_ssid(void) { return s_ap_ssid; }
+const char *net_ap_pass(void) { return s_ap_pass; }
 
 int net_rssi(void)
 {

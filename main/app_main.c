@@ -21,6 +21,7 @@
 #include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "esp_lvgl_port.h"
+#include "esp_ota_ops.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
@@ -257,7 +258,7 @@ static bool recal_request(uint16_t ppm)
 {
     if (ppm < 400 || ppm > 2000) return false;
     if (!s_sensor_ok || s_recal_ppm != 0) return false;
-    recal_set_msg("recalibrando...");
+    recal_set_msg("Kalibriere...");
     s_recal_ppm = ppm;
     return true;
 }
@@ -309,10 +310,10 @@ static void recal_run(uint16_t ppm)
     if (err == ESP_OK && bruto != 0xFFFF) {
         // La correccion viene con un desplazamiento de 0x8000, en ppm.
         const int corr = (int)bruto - 0x8000;
-        snprintf(msg, sizeof(msg), "recalibrado a %u ppm (correccion %+d ppm)", ppm, corr);
+        snprintf(msg, sizeof(msg), "Kalibriert auf %u ppm (Korrektur %+d ppm)", ppm, corr);
         ESP_LOGI(TAG, "%s", msg);
     } else {
-        snprintf(msg, sizeof(msg), "la recalibracion fallo (%s)", esp_err_to_name(err));
+        snprintf(msg, sizeof(msg), "Kalibrierung fehlgeschlagen (%s)", esp_err_to_name(err));
         ESP_LOGW(TAG, "%s", msg);
     }
 
@@ -320,7 +321,7 @@ static void recal_run(uint16_t ppm)
     // seria peor que no haberlo intentado.
     if (tengo_voc) sen66_set_voc_state(voc);
     if (sen66_start() != ESP_OK) {
-        strlcat(msg, " y el sensor no rearranca", sizeof(msg));
+        strlcat(msg, ", und der Sensor startet nicht neu", sizeof(msg));
         ESP_LOGE(TAG, "el sensor no rearranca tras recalibrar");
         s_sensor_ok = false;  // que lo recoja la deteccion de sensor muerto
     }
@@ -483,7 +484,12 @@ static void status_message(char *buf, size_t len)
         // funcionamiento es mentira.
         snprintf(buf, len, "%s", T(STR_NOT_RESPONDING));
     } else if (net_state() == NET_PORTAL) {
-        snprintf(buf, len, T(STR_SETUP_AT), net_ap_ssid());
+        int w = snprintf(buf, len, T(STR_SETUP_AT), net_ap_ssid());
+        // El portal ya no es abierto: hay que enseñar tambien la clave WPA2, o
+        // nadie podria entrar a configurarlo.
+        if (w > 0 && (size_t)w < len && net_ap_pass()[0]) {
+            snprintf(buf + w, len - (size_t)w, " / %s", net_ap_pass());
+        }
     } else {
         buf[0] = '\0';
     }
@@ -508,7 +514,7 @@ static void ui_timer_cb(lv_timer_t *t)
         strftime(time_str, sizeof(time_str), "%H:%M", &lt);
     }
 
-    char msg[48];
+    char msg[64]; // cabe "einrichten unter SEN66-XXXXXX / 12345678"
     status_message(msg, sizeof(msg));
 
     ui_update(&snap);
@@ -605,6 +611,20 @@ void app_main(void)
     }
 
     xTaskCreatePinnedToCore(sensor_task, "sen66", 4096, NULL, 5, NULL, 1);
+
+    // Con el rollback activado (CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE), una
+    // imagen recien flasheada por OTA arranca "a prueba": si no la confirmamos,
+    // el proximo reinicio la revierte a la anterior. Haber llegado hasta aqui
+    // -pantalla, sensor, red y tareas en marcha- es la senal de que es buena.
+    {
+        const esp_partition_t *run = esp_ota_get_running_partition();
+        esp_ota_img_states_t st;
+        if (run && esp_ota_get_state_partition(run, &st) == ESP_OK &&
+            st == ESP_OTA_IMG_PENDING_VERIFY) {
+            esp_ota_mark_app_valid_cancel_rollback();
+            ESP_LOGI(TAG, "imagen OTA confirmada (rollback cancelado)");
+        }
+    }
 
     ESP_LOGI(TAG, "arranque completo (heap interno libre: %u KB, PSRAM: %u KB)",
              (unsigned)(heap_caps_get_free_size(MALLOC_CAP_INTERNAL) / 1024),

@@ -417,15 +417,17 @@ static esp_err_t sen66_forced_co2_recal_unlocked(uint16_t target_ppm, uint16_t *
 
 void sen66_status_text(uint32_t status, char *buf, size_t len)
 {
+    // Textos que ve el usuario en el panel web (fila "Sensor"). En aleman, que
+    // es el idioma del panel; el fichero es UTF-8 y el panel tambien.
     static const struct { uint32_t bit; const char *txt; } k[] = {
-        {SEN66_ST_FAN_ERROR,   "ventilador"},
-        {SEN66_ST_RHT_ERROR,   "temp/hum"},
+        {SEN66_ST_FAN_ERROR,   "Lüfter"},
+        {SEN66_ST_RHT_ERROR,   "Temp/Feuchte"},
         {SEN66_ST_GAS_ERROR,   "VOC/NOx"},
         {SEN66_ST_CO2_1_ERROR, "CO2"},
         {SEN66_ST_CO2_2_ERROR, "CO2(2)"},
         {SEN66_ST_HCHO_ERROR,  "HCHO"},
-        {SEN66_ST_PM_ERROR,    "particulas"},
-        {SEN66_ST_FAN_WARNING, "aviso ventilador"},
+        {SEN66_ST_PM_ERROR,    "Feinstaub"},
+        {SEN66_ST_FAN_WARNING, "Lüfter-Warnung"},
     };
     buf[0] = '\0';
     size_t n = 0;
