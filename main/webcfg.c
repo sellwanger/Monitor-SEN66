@@ -457,7 +457,7 @@ static esp_err_t h_state(httpd_req_t *req)
         }
     }
     n = sappend(json, sizeof(json), n, "\"level\":\"%s\"",
-                s.valid ? air_level_text(air_overall(&s)) : "");
+                s.valid ? air_level_key(air_overall(&s)) : "");
 
     {
         const float lvl = mic_level_dbfs(), pk = mic_peak_dbfs();

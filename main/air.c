@@ -142,15 +142,15 @@ air_level_t air_level(air_metric_t m, float value)
     return AIR_LVL_BAD;
 }
 
-const char *air_level_text(air_level_t lvl)
+const char *air_level_key(air_level_t lvl)
 {
     switch (lvl) {
-    case AIR_LVL_GOOD:     return "BUENO";
-    case AIR_LVL_FAIR:     return "ACEPTABLE";
-    case AIR_LVL_MODERATE: return "REGULAR";
-    case AIR_LVL_POOR:     return "MALO";
-    case AIR_LVL_BAD:      return "MUY MALO";
-    default:               return "---";
+    case AIR_LVL_GOOD:     return "good";
+    case AIR_LVL_FAIR:     return "fair";
+    case AIR_LVL_MODERATE: return "moderate";
+    case AIR_LVL_POOR:     return "poor";
+    case AIR_LVL_BAD:      return "bad";
+    default:               return "unknown";
     }
 }
 

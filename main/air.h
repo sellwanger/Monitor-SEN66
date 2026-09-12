@@ -52,7 +52,11 @@ int air_metric_decimals(air_metric_t m);
 // Clasificacion. Para los contaminantes son bandas crecientes; para
 // temperatura y humedad es distancia al rango de confort.
 air_level_t air_level(air_metric_t m, float value);
-const char *air_level_text(air_level_t lvl);
+// Identificador ESTABLE del nivel, en ingles y en minusculas: "good", "fair",
+// "moderate", "poor", "bad", "unknown". Es lo que viaja por MQTT y por la API
+// del panel, y lo que comparan las automatizaciones de Home Assistant y el
+// JS del panel: NO traducir nunca. Para texto de pantalla esta i18n_level().
+const char *air_level_key(air_level_t lvl);
 uint32_t air_level_color(air_level_t lvl); // 0xRRGGBB
 
 // Peor nivel entre CO2, PM2.5, PM10, VOC y NOx: el "semaforo" del resumen.

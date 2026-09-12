@@ -676,7 +676,7 @@ static void wake_on_air_check(const air_sample_t *s)
 
     armado = false;
     ultimo_us = ahora;
-    ESP_LOGW(TAG, "air quality %s: waking the display", air_level_text(nivel));
+    ESP_LOGW(TAG, "air quality %s: waking the display", air_level_key(nivel));
     ui_wake();
 }
 

@@ -305,12 +305,10 @@ void ha_mqtt_publish(const air_sample_t *s)
     }
     // El nivel va como identificador estable en ingles, NO traducido: si
     // cambiara con el idioma de la pantalla romperia las automatizaciones de
-    // Home Assistant, que comparan contra el valor.
-    static const char *const NIVEL[] = {"good", "fair", "moderate", "poor", "bad"};
-    const air_level_t lvl = air_overall(s);
+    // Home Assistant, que comparan contra el valor. La tabla esta en air.c,
+    // una sola, para que MQTT y el panel no puedan divergir.
     n += snprintf(json + n, sizeof(json) - n, "%s\"level\":\"%s\",\"rssi\":%d",
-                  n > 1 ? "," : "",
-                  lvl < AIR_LVL_COUNT ? NIVEL[lvl] : "unknown", net_rssi());
+                  n > 1 ? "," : "", air_level_key(air_overall(s)), net_rssi());
 
     pmu_status_t b;
     if (pmu_available() && pmu_read(&b) == ESP_OK && b.present) {
