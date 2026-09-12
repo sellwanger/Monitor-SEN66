@@ -27,6 +27,7 @@ typedef enum {
     STR_NO_WIFI,           // "sin wifi"
     STR_LBL_TEMP,          // rotulo corto de temperatura
     STR_LBL_HUM,           // rotulo corto de humedad
+    STR_SAVER_IDLE,        // "ahorro: sensor en pausa" (ciclo en bateria)
     STR_COUNT,
 } str_id_t;
 

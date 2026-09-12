@@ -62,6 +62,18 @@ typedef struct {
     // fisica). La descarga de la copia CON contrasenas exige clave siempre.
     char web_user[24];   // usuario; vacio = "admin"
     char web_pass[33];   // clave; vacio = autenticacion desactivada
+
+    // --- Ahorro en bateria: ciclo de medicion del sensor ---
+    // Opcional y solo SIN USB. El SEN66 en medicion consume ~90 mA (ventilador,
+    // laser, CO2); en reposo ~3 mA. Con esto se alterna: mide batt_on_s
+    // segundos, descansa el resto de batt_period_s, y vuelta a empezar.
+    // Coste: NOx queda practicamente ciego (necesita ~5 min continuos), la
+    // garantia de precision del CO2 con ASC exige operacion continua, y el
+    // primer medio minuto de cada ventana el PM aun se estabiliza. PM, T, RH
+    // y VOC (estado conservado entre stop/start) siguen siendo utiles.
+    bool batt_saver;
+    uint16_t batt_on_s;      // ventana de medicion (s), minimo 60
+    uint16_t batt_period_s;  // periodo del ciclo (s), > batt_on_s
 } settings_t;
 
 // Carga de NVS; si no hay nada guardado deja los valores por defecto.

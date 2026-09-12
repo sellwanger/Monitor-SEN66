@@ -271,6 +271,16 @@ static const char k_page[] =
 "<label>Lärm-Kalibrierung (dB)</label><input name=noise_offset_db type=number min=0 max=200>\n"
 "<div class=hint>Wird zum Mikrofonpegel addiert. Mit einem Schallpegelmesser daneben und etwas Lärm im Raum einstellen, nicht in Stille.</div>\n"
 "\n"
+"<h2 style='margin-top:22px'>Akkubetrieb</h2>\n"
+"<label>Sensor im Akkubetrieb zyklisch pausieren</label><select name=batt_saver>\n"
+"<option value=0>Nein (Dauermessung)</option><option value=1>Ja (Sparmodus)</option>\n"
+"</select>\n"
+"<div class=grid>\n"
+"<div><label>Messfenster (s)</label><input name=batt_on_s type=number min=60 max=3600></div>\n"
+"<div><label>Zyklus (s)</label><input name=batt_period_s type=number min=120 max=7200></div>\n"
+"</div>\n"
+"<div class=hint>Greift nur ohne USB. Der SEN66 zieht beim Messen ~90 mA, in der Pause ~3 mA; mit 180/600 s halbiert sich der Sensorverbrauch grob. Preis: NOx ist in kurzen Fenstern praktisch blind, die CO2-Autokalibrierung setzt Dauerbetrieb voraus, und die ersten ~30 s jedes Fensters braucht der Feinstaub zum Einschwingen. PM, Temperatur, Feuchte und VOC bleiben brauchbar. Zyklus muss mindestens 60 s länger sein als das Fenster.</div>\n"
+"\n"
 "<h2 style='margin-top:22px'>Akustischer Alarm</h2>\n"
 "<label>Warnen, wenn CO2 steigt</label><select name=alarm_enabled>\n"
 "<option value=1>Ja</option><option value=0>Nein</option>\n"
@@ -469,7 +479,7 @@ static esp_err_t h_settings_get(httpd_req_t *req)
     if (guard_api(req) != ESP_OK) return ESP_FAIL;
 
     const settings_t *c = settings_get();
-    char json[1000];
+    char json[1200];
     int n = 0;
     char e[196]; // buffer de escape reutilizado: sappend lo copia al momento
     // Las contrasenas nunca se devuelven; el formulario las deja en blanco y
@@ -489,12 +499,14 @@ static esp_err_t h_settings_get(httpd_req_t *req)
         "\"page_dwell_s\":%u,\"chart_span_min\":%u,\"pages_mask\":%u,"
         "\"temp_offset\":%.1f,\"altitude_m\":%u,\"co2_asc\":%d,"
         "\"alarm_enabled\":%d,\"alarm_co2_ppm\":%u,\"alarm_clear_ppm\":%u,"
-        "\"alarm_volume\":%u,\"noise_offset_db\":%d}",
+        "\"alarm_volume\":%u,\"noise_offset_db\":%d,"
+        "\"batt_saver\":%d,\"batt_on_s\":%u,\"batt_period_s\":%u}",
         c->brightness, c->night_brightness, c->screen_timeout_s,
         c->page_dwell_s, c->chart_span_min, c->pages_mask,
         c->temp_offset_dc / 10.0f, c->altitude_m, c->co2_asc ? 1 : 0,
         c->alarm_enabled ? 1 : 0, c->alarm_co2_ppm, c->alarm_clear_ppm,
-        c->alarm_volume, c->noise_offset_db);
+        c->alarm_volume, c->noise_offset_db,
+        c->batt_saver ? 1 : 0, c->batt_on_s, c->batt_period_s);
 
     httpd_resp_set_type(req, "application/json");
     return httpd_resp_send(req, json, n);
@@ -585,7 +597,17 @@ static esp_err_t h_settings_post(httpd_req_t *req)
     if (get_num(root, "alarm_clear_ppm", &d))  c->alarm_clear_ppm = (uint16_t)(d < 400 ? 400 : (d > 5000 ? 5000 : d));
     if (get_num(root, "alarm_volume", &d))     c->alarm_volume = (uint8_t)(d < 0 ? 0 : (d > 100 ? 100 : d));
     if (get_num(root, "noise_offset_db", &d)) c->noise_offset_db = (int16_t)(d < 0 ? 0 : (d > 200 ? 200 : d));
+    if (get_num(root, "batt_saver", &d))       c->batt_saver = (d != 0);
+    if (get_num(root, "batt_on_s", &d))        c->batt_on_s = (uint16_t)(d < 60 ? 60 : (d > 3600 ? 3600 : d));
+    if (get_num(root, "batt_period_s", &d))    c->batt_period_s = (uint16_t)(d < 120 ? 120 : (d > 7200 ? 7200 : d));
     cJSON_Delete(root);
+
+    // El ciclo tiene que dejar una pausa real: si no, el ahorro no ahorra y el
+    // sensor se pasaria el dia parando y arrancando (1,4 s cada parada).
+    if (c->batt_period_s < c->batt_on_s + 60) {
+        c->batt_period_s = c->batt_on_s + 60;
+        ESP_LOGW(TAG, "ciclo de ahorro demasiado corto: subido a %u s", c->batt_period_s);
+    }
 
     // La histeresis solo existe si el umbral de callar queda POR DEBAJO del de
     // avisar. Igualados o al reves, el aviso se dispararia y se cancelaria en
@@ -638,7 +660,7 @@ static esp_err_t h_backup(httpd_req_t *req)
         return ESP_FAIL;
     }
 
-    char json[1000];
+    char json[1200];
     int n = 0;
     char e[196];
     n = sappend(json, sizeof(json), n, "{");
@@ -655,11 +677,15 @@ static esp_err_t h_backup(httpd_req_t *req)
         "\"brightness\":%u,\"night_brightness\":%u,\"screen_timeout_s\":%u,"
         "\"chart_span_min\":%u,\"pages_mask\":%u,\"temp_offset\":%.1f,"
         "\"altitude_m\":%u,\"co2_asc\":%d,\"alarm_enabled\":%d,"
-        "\"alarm_co2_ppm\":%u,\"alarm_clear_ppm\":%u,\"alarm_volume\":%u",
+        "\"alarm_co2_ppm\":%u,\"alarm_clear_ppm\":%u,\"alarm_volume\":%u,"
+        "\"noise_offset_db\":%d,"
+        "\"batt_saver\":%d,\"batt_on_s\":%u,\"batt_period_s\":%u",
         c->brightness, c->night_brightness, c->screen_timeout_s,
         c->chart_span_min, c->pages_mask, c->temp_offset_dc / 10.0,
         c->altitude_m, c->co2_asc, c->alarm_enabled,
-        c->alarm_co2_ppm, c->alarm_clear_ppm, c->alarm_volume);
+        c->alarm_co2_ppm, c->alarm_clear_ppm, c->alarm_volume,
+        c->noise_offset_db,
+        c->batt_saver ? 1 : 0, c->batt_on_s, c->batt_period_s);
 
     if (con_secretos) {
         char wp[132], mp[132];

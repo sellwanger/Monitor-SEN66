@@ -90,6 +90,13 @@ static air_sample_t s_sample;      // protegida por s_lock
 static int64_t s_last_read_us;
 static bool s_sensor_ok;
 static bool s_had_reading;   // ha llegado alguna lectura desde el arranque
+// Referencia de "frescura" ademas de la ultima lectura: se pone al arrancar la
+// tarea, al recuperar el sensor y al salir de una pausa de ahorro, para que la
+// deteccion de sensor muerto no salte justo despues de un (re)arranque.
+static int64_t s_alive_since_us;
+// Sensor parado A PROPOSITO por el ciclo de ahorro en bateria (ver mas abajo).
+// Va aqui arriba porque recal_request y status_message lo consultan.
+static volatile bool s_saver_idle;
 // Lo escribe la tarea del sensor y lo lee el temporizador de la UI. LVGL no
 // es seguro entre tareas: tocar sus objetos desde la tarea del sensor era
 // pedir problemas, y ademas cambiar el brillo desde alli compite con el
@@ -257,7 +264,7 @@ static void recal_set_msg(const char *m)
 static bool recal_request(uint16_t ppm)
 {
     if (ppm < 400 || ppm > 2000) return false;
-    if (!s_sensor_ok || s_recal_ppm != 0) return false;
+    if (!s_sensor_ok || s_recal_ppm != 0 || s_saver_idle) return false;
     recal_set_msg("Kalibriere...");
     s_recal_ppm = ppm;
     return true;
@@ -343,6 +350,73 @@ static void sensor_recover(void)
     ESP_LOGI(TAG, "sensor recuperado");
 }
 
+// ------------------------------------------- ahorro en bateria (ciclo)
+// Opcional (ajustes) y solo sin USB: alterna medicion e Idle del SEN66. En
+// Idle el sensor baja de ~90 mA a ~3 mA (ventilador y laser apagados), lo
+// que en un aparato de 1100 mAh es la diferencia entre ~8 h y ~16 h. El
+// precio lo pagan NOx (ciego en ventanas cortas) y la garantia ASC del CO2;
+// esta razonado en settings.h. Solo desde sensor_task, como recal_run.
+static int64_t s_saver_next_us;      // proxima transicion (0 = sin ciclo)
+static uint8_t s_saver_voc[SEN66_VOC_STATE_LEN];
+static bool s_saver_have_voc;
+
+static void saver_pause(void)
+{
+    // El datasheet dice que el estado VOC se conserva entre stop y start,
+    // pero guardarlo cuesta nada y cubre firmwares del sensor mas viejos.
+    s_saver_have_voc = (sen66_get_voc_state(s_saver_voc) == ESP_OK);
+    if (sen66_stop() != ESP_OK) {
+        ESP_LOGW(TAG, "ahorro: el sensor no se para, sigo midiendo");
+        return;
+    }
+    s_saver_idle = true;
+    ESP_LOGI(TAG, "ahorro: sensor en pausa");
+}
+
+static void saver_resume(void)
+{
+    if (s_saver_have_voc) sen66_set_voc_state(s_saver_voc);
+    s_saver_idle = false;
+    s_alive_since_us = esp_timer_get_time(); // gracia para la deteccion de muerto
+    if (sen66_start() != ESP_OK) {
+        ESP_LOGE(TAG, "ahorro: el sensor no rearranca");
+        s_sensor_ok = false;  // que lo recoja sensor_recover
+        return;
+    }
+    ESP_LOGI(TAG, "ahorro: sensor midiendo");
+}
+
+static void saver_tick(int64_t now, bool on_battery)
+{
+    const settings_t *cfg = settings_get();
+    const bool want = cfg->batt_saver && on_battery && s_sensor_ok;
+    if (!want) {
+        if (s_saver_idle) saver_resume();   // vuelve el USB (o se desactiva)
+        s_saver_next_us = 0;
+        return;
+    }
+    // Sanidad por si el blob de ajustes trae ceros o valores absurdos.
+    int64_t on_s = cfg->batt_on_s < 60 ? 60 : cfg->batt_on_s;
+    int64_t period_s = cfg->batt_period_s;
+    if (period_s < on_s + 60) period_s = on_s + 60;
+
+    if (s_saver_next_us == 0) {
+        // Entramos en bateria con el sensor midiendo: la primera ventana
+        // empieza a contar ahora.
+        s_saver_next_us = now + on_s * 1000000;
+        return;
+    }
+    if (now < s_saver_next_us) return;
+
+    if (!s_saver_idle) {
+        saver_pause();
+        s_saver_next_us = now + (period_s - on_s) * 1000000;
+    } else {
+        saver_resume();
+        s_saver_next_us = now + on_s * 1000000;
+    }
+}
+
 static void sensor_task(void *arg)
 {
     (void)arg;
@@ -351,7 +425,7 @@ static void sensor_task(void *arg)
     int64_t next_batt_us = 0;
     int64_t next_pmu_us = 0;
     int64_t next_voc_us = esp_timer_get_time() + (int64_t)VOC_SAVE_PERIOD_S * 1000000;
-    int64_t alive_since_us = esp_timer_get_time();
+    s_alive_since_us = esp_timer_get_time();
 
     bool on_battery = false;
 
@@ -382,6 +456,8 @@ static void sensor_task(void *arg)
             }
         }
 
+        saver_tick(now, on_battery);
+
         if (s_recal_ppm != 0) {
             recal_run(s_recal_ppm);
             s_recal_ppm = 0;
@@ -398,7 +474,7 @@ static void sensor_task(void *arg)
             // diagnostico corto da igual; si se alarga, se recupera solo.
         }
 
-        if (s_sensor_ok) {
+        if (s_sensor_ok && !s_saver_idle) {
             air_sample_t fresh;
             air_sample_clear(&fresh);
             const esp_err_t err = sen66_read(&fresh);
@@ -428,14 +504,15 @@ static void sensor_task(void *arg)
 
         // Referencia para la frescura: la ultima lectura buena o, si aun no ha
         // habido ninguna, el arranque de la tarea.
-        const int64_t ref = s_last_read_us ? s_last_read_us : alive_since_us;
-        const bool vivo = s_sensor_ok && (now - ref) < (int64_t)SENSOR_DEAD_S * 1000000;
+        const int64_t ref = s_last_read_us > s_alive_since_us ? s_last_read_us : s_alive_since_us;
+        const bool vivo = s_sensor_ok &&
+                          (s_saver_idle || (now - ref) < (int64_t)SENSOR_DEAD_S * 1000000);
 
         ha_mqtt_set_available(vivo);
         if (!vivo && now >= next_retry_us) {
             next_retry_us = now + (int64_t)SENSOR_RETRY_S * 1000000;
             sensor_recover();
-            alive_since_us = esp_timer_get_time();
+            s_alive_since_us = esp_timer_get_time();
         }
 
         if (vivo && now >= next_voc_us) {
@@ -444,7 +521,7 @@ static void sensor_task(void *arg)
             fan_clean_check(); // aprovechamos el mismo despertar horario
         }
 
-        if (vivo && now >= next_mqtt_us) {
+        if (vivo && !s_saver_idle && now >= next_mqtt_us) {
             next_mqtt_us = now + (int64_t)(on_battery ? BATT_MQTT_PERIOD_S : MQTT_PERIOD_S) * 1000000;
             air_sample_t snap;
             xSemaphoreTake(s_lock, portMAX_DELAY);
@@ -472,13 +549,15 @@ static void get_sample_for_web(air_sample_t *out)
 
 static void status_message(char *buf, size_t len)
 {
-    const uint32_t age = s_last_read_us
-        ? (uint32_t)((esp_timer_get_time() - s_last_read_us) / 1000000) : UINT32_MAX;
+    const int64_t ref = s_last_read_us > s_alive_since_us ? s_last_read_us : s_alive_since_us;
+    const uint32_t age = ref ? (uint32_t)((esp_timer_get_time() - ref) / 1000000) : UINT32_MAX;
 
     if (!s_sensor_ok) {
         snprintf(buf, len, "%s", T(STR_NO_SENSOR));
     } else if (!s_had_reading) {
         snprintf(buf, len, "%s", T(STR_WARMING));
+    } else if (s_saver_idle) {
+        snprintf(buf, len, "%s", T(STR_SAVER_IDLE));
     } else if (age > SAMPLE_STALE_S) {
         // Antes esto tambien decia "calentando", que a las cinco horas de
         // funcionamiento es mentira.

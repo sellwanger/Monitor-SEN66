@@ -28,6 +28,8 @@ static const char *const TBL[STR_COUNT][LANG_COUNT] = {
     [STR_NO_WIFI]        = {"sin wifi", "no wifi", "kein WLAN"},
     [STR_LBL_TEMP]       = {"Temp", "Temp", "Temp"},
     [STR_LBL_HUM]        = {"Humedad", "Humidity", "Feuchte"},
+    [STR_SAVER_IDLE]     = {"ahorro: sensor en pausa", "power saving: sensor paused",
+                            "Sparmodus: Sensor pausiert"},
 };
 
 // Los cinco niveles. En aleman "MÄSSIG" lleva umlaut y es la palabra correcta:

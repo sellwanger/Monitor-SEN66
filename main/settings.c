@@ -40,6 +40,12 @@ void settings_defaults(settings_t *s)
     // Idioma por defecto: aleman. (Antes \"es\"; los aparatos ya configurados
     // conservan su idioma, esto solo afecta a un arranque de fabrica.)
     strcpy(s->lang, "de");
+    // Ahorro en bateria: apagado de fabrica. 3 min de medicion cada 10 min
+    // como valores sugeridos: PM estable y CO2 >90% asentado dentro de la
+    // ventana, y el sensor pasa de ~90 mA a ~29 mA de media.
+    s->batt_saver = false;
+    s->batt_on_s = 180;
+    s->batt_period_s = 600;
     // Medido (09-09-2026), no supuesto: dos anclajes separados 10 dB contra
     // una app de sonometro del movil dieron 112,4 y 112,2. Que las dos cifras
     // coincidan es lo que importa: el desvio es un desplazamiento constante,
