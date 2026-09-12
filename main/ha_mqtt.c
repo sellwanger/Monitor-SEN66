@@ -157,16 +157,16 @@ static void publish_discovery_battery(void)
 
     // Todo va como diagnostico: es informacion del aparato, no del aire.
     struct { const char *comp, *key, *name, *extra, *tpl; } ent[] = {
-        {"sensor", "battery", "Bateria",
+        {"sensor", "battery", "Battery",
          "\"dev_cla\":\"battery\",\"unit_of_meas\":\"%\",\"stat_cla\":\"measurement\",",
          "{{ value_json.bat }}"},
-        {"sensor", "bat_mv", "Tension de bateria",
+        {"sensor", "bat_mv", "Battery Voltage",
          "\"dev_cla\":\"voltage\",\"unit_of_meas\":\"mV\",\"stat_cla\":\"measurement\",",
          "{{ value_json.bat_mv }}"},
-        {"binary_sensor", "charging", "Cargando",
+        {"binary_sensor", "charging", "Charging",
          "\"dev_cla\":\"battery_charging\",\"pl_on\":\"ON\",\"pl_off\":\"OFF\",",
          "{{ 'ON' if value_json.charging else 'OFF' }}"},
-        {"binary_sensor", "usb", "Alimentacion USB",
+        {"binary_sensor", "usb", "USB Power",
          "\"dev_cla\":\"plug\",\"pl_on\":\"ON\",\"pl_off\":\"OFF\",",
          "{{ 'ON' if value_json.usb else 'OFF' }}"},
     };
