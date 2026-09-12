@@ -72,7 +72,7 @@ at 100 kHz (the maximum the SEN66 supports), while the on-board bus (touch,
 PMU, RTC, IMU, audio) stays at 400 kHz. Bonus: the sensor never competes with
 the touch controller.
 
-**The full diagram is in [docs/CABLEADO.md](docs/CABLEADO.md).** Summary:
+**The full diagram is in [docs/WIRING.md](docs/WIRING.md).** Summary:
 
 Wire by the **silk-screen label** on the header, not by pin number:
 

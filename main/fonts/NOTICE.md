@@ -1,17 +1,16 @@
-# Sobre estas fuentes
+# About these fonts
 
-Los ficheros `font_de_*.c` se generaron con
-[lv_font_conv](https://github.com/lvgl/lv_font_conv) a partir de
-**Montserrat-Medium.ttf**, que viene dentro de LVGL
+The `font_de_*.c` files were generated with
+[lv_font_conv](https://github.com/lvgl/lv_font_conv) from
+**Montserrat-Medium.ttf**, which ships inside LVGL
 (`scripts/built_in_font/`).
 
-**Montserrat** es de Julieta Ulanovsky y colaboradores, y está publicada bajo
-la [SIL Open Font License 1.1](https://scripts.sil.org/OFL). Esa licencia
-permite empaquetarla con software de cualquier licencia —incluida la de este
-proyecto— pero la fuente en sí, y cualquier derivado suyo como estos
-ficheros, **siguen siendo OFL**. En la práctica: puedes usarlos y
-redistribuirlos, no puedes venderlos por separado como fuente, y hay que
-conservar esta atribución.
+**Montserrat** is by Julieta Ulanovsky and contributors and is published
+under the [SIL Open Font License 1.1](https://scripts.sil.org/OFL). That
+licence allows bundling it with software under any licence — including this
+project's — but the font itself, and any derivative of it such as these
+files, **remain OFL**. In practice: you may use and redistribute them, you
+may not sell them separately as a font, and this attribution must be kept.
 
-Contienen únicamente los siete glifos que el alemán necesita y las Montserrat
-de LVGL no traen: `Ä Ö Ü ä ö ü ß`.
+They contain only the seven glyphs that German needs and LVGL's Montserrat
+fonts lack: `Ä Ö Ü ä ö ü ß`.

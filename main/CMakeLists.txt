@@ -37,6 +37,6 @@ idf_component_register(
         nvs_flash
 )
 
-# LVGL genera/espera el include condicional estandar; en ESP-IDF el header es
-# "lvgl.h" a secas.
+# LVGL generates/expects the standard conditional include; in ESP-IDF the
+# header is plain "lvgl.h".
 target_compile_definitions(${COMPONENT_LIB} PRIVATE LV_LVGL_H_INCLUDE_SIMPLE)

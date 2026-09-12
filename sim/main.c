@@ -96,7 +96,7 @@ static void save_bmp(const char *path, const lv_draw_buf_t *buf)
         fwrite(buf->data + y * buf->header.stride, 1, w * 4, f);
     }
     fclose(f);
-    printf("captura: %s\n", path);
+    printf("screenshot: %s\n", path);
 }
 
 static void take_shot(const char *dir, int idx)
@@ -136,7 +136,7 @@ int main(int argc, char **argv)
             scenario = (strcmp(v, "good") == 0) ? SC_GOOD
                      : (strcmp(v, "bad") == 0)  ? SC_BAD : SC_NORMAL;
         } else {
-            fprintf(stderr, "uso: %s [--lang es|en|de] [--page 0-4] [--warp N] [--scenario good|normal|bad]"
+            fprintf(stderr, "usage: %s [--lang es|en|de] [--page 0-4] [--warp N] [--scenario good|normal|bad]"
                             " [--offset SEG] [--shots dir N]\n", argv[0]);
             return 1;
         }

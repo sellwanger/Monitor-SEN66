@@ -1,60 +1,61 @@
-# Homebridge (HomeKit) sin Home Assistant
+# Homebridge (HomeKit) without Home Assistant
 
-El aparato publica por MQTT igual que para Home Assistant; lo que cambia es
-quien escucha. Con [`homebridge-mqttthing`](https://github.com/arachnetech/homebridge-mqttthing)
-acaba en la app **Casa** de Apple y en Siri.
+The device publishes over MQTT exactly as it does for Home Assistant; what
+changes is who listens. With
+[`homebridge-mqttthing`](https://github.com/arachnetech/homebridge-mqttthing)
+it ends up in Apple's **Home** app and in Siri.
 
-Configuracion lista para pegar: [`homebridge.json`](homebridge.json).
-Las funciones `apply` estan probadas contra el JSON real del aparato.
+Ready-to-paste configuration: [`homebridge.json`](homebridge.json). The
+`apply` functions are tested against the device's real JSON.
 
-## Montaje
+## Set-up
 
-1. **Broker**: montarlo como explica [MQTT.md](MQTT.md). Con Homebridge deja
-   el **prefijo de descubrimiento vacio** en el panel del aparato: el
-   autodescubrimiento solo lo entiende Home Assistant, y si no, quedan once
-   mensajes retenidos en el broker que no consume nadie.
+1. **Broker**: set it up as described in [MQTT.md](MQTT.md). With Homebridge,
+   leave the **discovery prefix empty** in the device's panel: auto-discovery
+   is only understood by Home Assistant, and otherwise a dozen retained
+   messages sit in the broker with nobody consuming them.
 
-2. **Plugin**: desde la interfaz de Homebridge, o por consola si es la
-   instalacion oficial con Node propio en `/opt/homebridge`:
+2. **Plugin**: from the Homebridge UI, or from the console if it is the
+   official install with its own Node in `/opt/homebridge`:
 
    ```bash
    hb-service add homebridge-mqttthing
    ```
 
-3. **Aparato**: en su panel web, broker `mqtt://IP-DE-LA-DIETPI:1883` con ese
-   usuario y contrasena. Al guardar se reinicia.
+3. **Device**: in its web panel, broker `mqtt://YOUR-DIETPI-IP:1883` with that
+   user and password. It reboots on save.
 
-4. **Homebridge**: pegar los dos accesorios de `homebridge.json` dentro del
-   array `accessories` de tu `config.json` y reiniciar.
+4. **Homebridge**: paste the two accessories from `homebridge.json` into the
+   `accessories` array of your `config.json` and restart.
 
-> **Editar estos accesorios SOLO como JSON.** El formulario de la interfaz de
-> Homebridge no sabe representar los temas con funcion `apply`, y al guardar
-> desde ahi —aunque solo se cambie el nombre— se lleva por delante el bloque
-> `topics` entero. El accesorio sigue apareciendo en HomeKit, pero ya no lee
-> nada, y en el registro salen errores del tipo `Cannot read properties of
-> undefined (reading 'getAirQuality')`. Usar el editor de JSON de la interfaz
-> (Config > JSON) o el fichero a mano.
+> **Edit these accessories ONLY as JSON.** The Homebridge UI form cannot
+> represent topics with an `apply` function, and saving from there — even if
+> you only change the name — wipes out the whole `topics` block. The
+> accessory still shows up in HomeKit but no longer reads anything, and the
+> log fills with errors like `Cannot read properties of undefined (reading
+> 'getAirQuality')`. Use the UI's JSON editor (Config > JSON) or the file
+> directly.
 
-## Que se ve y que no
+## What you see and what you don't
 
-| Metrica | En HomeKit |
+| Metric | In HomeKit |
 |---|---|
-| Nivel global | Calidad del aire, escala 1-5 (mapeo 1:1 con los cinco del firmware) |
-| PM2.5, PM10 | Densidades, en el detalle del accesorio |
-| CO2 | Nivel en ppm + accesorio de CO2 que avisa por encima de 1200 ppm |
-| Temperatura, humedad | Servicios dentro del mismo accesorio |
-| **VOC y NOx** | **No aparecen** |
-| Bateria | Nivel, estado de carga y aviso de bateria baja, si hay celda |
-| **Ruido** | **No como numero**: HomeKit no tiene sensor de sonido. Va como binario "Ruido alto" |
+| Overall level | Air quality, 1–5 scale (1:1 mapping with the firmware's five levels) |
+| PM2.5, PM10 | Densities, in the accessory's detail view |
+| CO2 | Level in ppm + a CO2 accessory that alerts above 1200 ppm |
+| Temperature, humidity | Services inside the same accessory |
+| **VOC and NOx** | **Not shown** |
+| Battery | Level, charging state and low-battery alert, if there is a cell |
+| **Noise** | **Not as a number**: HomeKit has no sound sensor. It goes as a "Loud" binary |
 
-VOC y NOx se quedan fuera a proposito: HomeKit espera densidades en ug/m3 y
-el SEN66 da *indices* adimensionales (1-500). Publicarlos como si fueran una
-densidad seria inventarse la unidad. Se siguen viendo en la pantalla del
-aparato y en su panel web.
+VOC and NOx are left out on purpose: HomeKit expects densities in µg/m³ and
+the SEN66 gives dimensionless *indices* (1–500). Publishing them as if they
+were a density would be inventing the unit. They are still visible on the
+device's screen and in its web panel.
 
-**Excepcion, si quieres graficas**: la app Casa no guarda historico, pero la
-app **Eve** si, y para eso mqttthing exige `getVOCDensity`. Si te compensa,
-anade al accesorio de calidad del aire:
+**Exception, if you want graphs**: the Home app keeps no history, but the
+**Eve** app does, and for that mqttthing requires `getVOCDensity`. If it is
+worth it to you, add to the air-quality accessory:
 
 ```json
 "getVOCDensity": {
@@ -63,46 +64,49 @@ anade al accesorio de calidad del aire:
 },
 ```
 
-y `"history": true`. Sabiendo que ese numero es un indice disfrazado de ug/m3.
+plus `"history": true` — knowing that this number is an index dressed up as
+µg/m³.
 
-## El ruido
+## Noise
 
-HomeKit **no tiene ningun servicio de nivel sonoro**, ni mqttthing lo inventa:
-sus tipos de sensor son aire, CO2, CO, contacto, humedad, fuga, luz,
-movimiento, ocupacion, humo, temperatura y presion. Punto.
+HomeKit **has no sound-level service whatsoever**, and mqttthing does not
+invent one: its sensor types are air quality, CO2, CO, contact, humidity,
+leak, light, motion, occupancy, smoke, temperature and pressure. Full stop.
 
-Asi que el numero no cabe. Lo que si cabe, y es util, es un **umbral**: un
-sensor de ocupacion llamado "Ruido alto" que se activa por encima de 65 dB, y
-con el ya se pueden hacer automatizaciones ("si hay ruido y no hay nadie en
-casa, avisame"). El umbral se cambia en el `apply` del propio accesorio.
+So the number does not fit. What does fit, and is useful, is a **threshold**:
+an occupancy sensor called "Loud" that trips above 65 dB, and with that you
+can already build automations ("if it is loud and nobody is home, notify
+me"). The threshold is changed in the accessory's own `apply`.
 
-Se podria colar el nivel como sensor de luz, que es el apaño que circula por
-ahi, y la app Casa enseñaria "34 lx". No se hace por lo mismo que VOC y NOx se
-quedan fuera: inventarle una unidad a un dato es peor que no darlo.
+You could smuggle the level in as a light sensor, which is the hack that
+circulates, and the Home app would show "34 lx". It is not done, for the same
+reason VOC and NOx are left out: inventing a unit for a reading is worse than
+not showing it.
 
-## La bateria
+## Battery
 
-Homebridge **no usa el autodescubrimiento**, asi que la bateria no aparece
-sola como en Home Assistant: hay que darle los temas, y ya vienen en
-`homebridge.json`. mqttthing anade un **servicio de bateria** a cualquier
-accesorio en cuanto ve `getBatteryLevel`, `getChargingState` o
+Homebridge **does not use auto-discovery**, so the battery does not appear by
+itself as in Home Assistant: you have to give it the topics, and they are
+already in `homebridge.json`. mqttthing adds a **battery service** to any
+accessory as soon as it sees `getBatteryLevel`, `getChargingState` or
 `getStatusLowBattery`.
 
-Van solo en el accesorio de calidad del aire, no en el de CO2: en los dos, la
-app Casa enseñaria dos baterias para el mismo aparato.
+They go only on the air-quality accessory, not on the CO2 one: on both, the
+Home app would show two batteries for the same device.
 
-Si el aparato **no lleva celda**, esos campos no salen en el JSON y las
-funciones `apply` devuelven el valor anterior, asi que no molestan; pero si
-nunca vas a ponerle bateria, lo limpio es quitar los tres temas.
+If the device **has no cell**, those fields are absent from the JSON and the
+`apply` functions return the previous value, so they do no harm; but if you
+are never going to fit a battery, the clean thing is to remove the three
+topics.
 
-En la app Casa la bateria no es un icono aparte: sale **dentro del accesorio**,
-en sus ajustes. Y si acabas de anadirla, la app puede tardar en enterarse de
-que el accesorio tiene un servicio nuevo; forzar el cierre de la app suele
-bastar.
+In the Home app the battery is not a separate icon: it shows **inside the
+accessory**, in its settings. And if you have just added it, the app may take
+a while to notice that the accessory has a new service; force-quitting the
+app is usually enough.
 
-## El aviso de Node
+## The Node warning
 
-Homebridge avisa de que el plugin pide Node 18/20/22 y tu tienes 24:
+Homebridge warns that the plugin wants Node 18/20/22 and you have 24:
 
 ```
 The plugin "homebridge-mqttthing" requires a Node.js version of
@@ -110,11 +114,11 @@ The plugin "homebridge-mqttthing" requires a Node.js version of
 Node.js version of v24.19.0
 ```
 
-**Es un aviso, no un fallo, y se puede ignorar.** No hay version que lo
-arregle: la 1.1.49 es de enero de 2026 y sigue declarando como maximo el 22.
-Comprobado con `logMqtt` activado sobre Node 24.19.0 y Homebridge 2.4.0:
-recibe los mensajes cada 10 s, las funciones `apply` los decodifican y las
-caracteristicas se actualizan.
+**It is a warning, not a failure, and it can be ignored.** There is no
+version that fixes it: 1.1.49 is from January 2026 and still declares 22 as
+the maximum. Checked with `logMqtt` enabled on Node 24.19.0 and Homebridge
+2.4.0: it receives the messages every 10 s, the `apply` functions decode them
+and the characteristics update.
 
 ```
 [CO2] Received MQTT: sen66-XXXXXX/state = {"co2":470,...}
@@ -122,21 +126,22 @@ caracteristicas se actualizan.
 [CO2] apply() function decoded message to [470]
 ```
 
-Bajar Node a 22 para callar el aviso arrastraria a todos los demas plugins,
-que ahora funcionan en 24: no compensa. Eso si, el autor no ha probado en 24,
-asi que si algun dia el plugin hace algo raro, esto es lo primero que mirar.
+Downgrading Node to 22 to silence the warning would drag along every other
+plugin, which currently work on 24: not worth it. That said, the plugin
+author has not tested on 24, so if the plugin ever does something odd, this
+is the first thing to look at.
 
-## Notas
+## Notes
 
-- El umbral de 1200 ppm del aviso de CO2 esta en el `apply`, no en el
-  firmware: se cambia en el `config.json` y basta reiniciar Homebridge.
-- El firmware publica igualmente los mensajes de autodescubrimiento de Home
-  Assistant bajo `homeassistant/...`. Sin HA se quedan ahi retenidos sin
-  molestar, y si algun dia anades HA el aparato aparece solo. Para no
-  publicarlos, **vaciar el prefijo** en el panel web.
-- El tema de estado se publica **retenido**, asi que al reiniciar Homebridge
-  los accesorios recuperan el ultimo valor al instante. Sin eso, mqttthing
-  arranca avisando de `characteristic value ... received "undefined"` hasta
-  que llega el siguiente envio.
-- El aparato **no depende de nada de esto**: la pantalla y su panel web
-  funcionan aunque la DietPi este apagada.
+- The 1200 ppm threshold of the CO2 alert is in the `apply`, not in the
+  firmware: change it in `config.json` and restart Homebridge.
+- The firmware publishes the Home Assistant auto-discovery messages under
+  `homeassistant/...` regardless. Without HA they sit there retained doing no
+  harm, and if you ever add HA the device appears by itself. To not publish
+  them, **empty the prefix** in the web panel.
+- The state topic is published **retained**, so when Homebridge restarts the
+  accessories get the last value instantly. Without that, mqttthing starts
+  up warning of `characteristic value ... received "undefined"` until the
+  next publish arrives.
+- The device **depends on none of this**: the screen and its web panel work
+  even with the DietPi switched off.

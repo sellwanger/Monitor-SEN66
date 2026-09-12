@@ -16,40 +16,40 @@ CONFIG_SPIRAM_SPEED_80M=y
 CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=4096
 CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP=y
 
-# Tabla de particiones con dos slots de app (OTA)
+# Partition table with two app slots (OTA)
 CONFIG_PARTITION_TABLE_CUSTOM=y
 CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
 
-# --- Seguridad OTA -------------------------------------------------------
-# Rollback: una imagen OTA que arranca pero no llega a confirmarse en app_main
-# (esp_ota_mark_app_valid_cancel_rollback) se revierte sola a la anterior en el
-# siguiente reinicio. Protege de subir por el panel un .bin que bootea y muere.
+# --- OTA security --------------------------------------------------------
+# Rollback: an OTA image that boots but does not get confirmed in app_main
+# (esp_ota_mark_app_valid_cancel_rollback) is reverted to the previous one on
+# the next reset. Protects against uploading a .bin that boots and dies.
 CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y
 
-# Firma de imagenes de app SIN secure boot ni quemar eFuses: con esto, /api/ota
-# RECHAZA cualquier .bin que no vaya firmado con la clave privada del proyecto.
-# Es la unica defensa criptografica contra que alguien flashee firmware propio.
+# App image signing WITHOUT secure boot or burning eFuses: with this, /api/ota
+# REJECTS any .bin not signed with the project's private key. It is the only
+# cryptographic defence against someone flashing their own firmware.
 #
-# Requiere generar la clave UNA vez y guardarla FUERA del repo:
+# Requires generating the key ONCE and keeping it OUTSIDE the repo:
 #   espsecure.py generate_signing_key --version 1 secure_boot_signing_key.pem
 #
-# Esta comentado porque sin la clave el build falla a proposito. Descomentalo
-# tras generarla (imprescindible antes de exponer el aparato a una red con
-# equipos poco fiables):
+# Commented out because without the key the build fails on purpose. Uncomment
+# after generating it (essential before exposing the device to a network with
+# untrusted devices):
 #CONFIG_SECURE_SIGNED_APPS_NO_SECURE_BOOT=y
 #CONFIG_SECURE_SIGNED_ON_UPDATE_NO_SECURE_BOOT=y
 #CONFIG_SECURE_SIGNED_APPS_ECDSA_SCHEME=y
 #CONFIG_SECURE_BOOT_SIGNING_KEY="secure_boot_signing_key.pem"
 
-# Tick de 1ms: animaciones LVGL suaves
+# 1 ms tick: smooth LVGL animations
 CONFIG_FREERTOS_HZ=1000
 
 CONFIG_COMPILER_OPTIMIZATION_PERF=y
 
-# TLS necesita RAM interna contigua; no la malgastemos en otras cosas
+# TLS needs contiguous internal RAM; do not waste it elsewhere
 CONFIG_MBEDTLS_SSL_MAX_CONTENT_LEN=8192
 
-# El servidor web sirve una pagina de config con varios campos
+# The web server serves a config page with many fields
 CONFIG_HTTPD_MAX_REQ_HDR_LEN=1024
 CONFIG_HTTPD_MAX_URI_LEN=512
 
